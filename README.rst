@@ -12,6 +12,10 @@ MongoElector
         :target: https://www.quantifiedcode.com/app/project/7468e43a12e54973aebd9790bff8116d
         :alt: Code issues
 
+.. image:: https://landscape.io/github/zebpalmer/MongoElector/master/landscape.svg?style=flat
+        :target: https://landscape.io/github/zebpalmer/MongoElector/master
+        :alt: Code Health
+
 .. image:: https://readthedocs.org/projects/mongoelector/badge/?version=latest
         :target: https://readthedocs.org/projects/mongoelector/?badge=latest
         :alt: Documentation Status
