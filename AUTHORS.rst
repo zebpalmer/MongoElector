@@ -1,8 +1,8 @@
 =======
-Credits
+Authors
 =======
 
-Development Lead
+Creator
 ----------------
 
 * Zeb Palmer <zeb@zebpalmer.com>
