@@ -10,7 +10,7 @@ Tests for `mongoelector` module.
 
 import unittest
 
-from mongoelector import mongoelector
+from mongoelector import MongoElector
 
 
 class TestMongoelector(unittest.TestCase):

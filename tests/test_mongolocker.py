@@ -7,15 +7,17 @@ test_mongoelector
 
 Tests for `mongoelector` module.
 """
+
 import os
 import sys
 sys.path.insert(0, os.path.abspath('..'))
 
 
-import unittest
-
 from mongoelector import MongoLocker
 from pymongo import MongoClient
+
+import unittest
+
 
 
 class TestMongoLocker(unittest.TestCase):
@@ -42,5 +44,4 @@ class TestMongoLocker(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    import sys
     sys.exit(unittest.main())
