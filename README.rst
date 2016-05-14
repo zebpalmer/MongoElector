@@ -8,10 +8,6 @@ MongoElector
 .. image:: https://img.shields.io/travis/zebpalmer/MongoElector.svg
         :target: https://travis-ci.org/zebpalmer/MongoElector
 
-.. image:: https://www.quantifiedcode.com/api/v1/project/7468e43a12e54973aebd9790bff8116d/badge.svg
-        :target: https://www.quantifiedcode.com/app/project/7468e43a12e54973aebd9790bff8116d
-        :alt: Code issues
-
 .. image:: https://landscape.io/github/zebpalmer/MongoElector/master/landscape.svg?style=flat
         :target: https://landscape.io/github/zebpalmer/MongoElector/master
         :alt: Code Health
@@ -19,6 +15,12 @@ MongoElector
 .. image:: https://readthedocs.org/projects/mongoelector/badge/?version=latest
         :target: https://readthedocs.org/projects/mongoelector/?badge=latest
         :alt: Documentation Status
+
+.. image:: https://www.quantifiedcode.com/api/v1/project/7468e43a12e54973aebd9790bff8116d/badge.svg
+        :target: https://www.quantifiedcode.com/app/project/7468e43a12e54973aebd9790bff8116d
+        :alt: Code issues
+
+
 
 NOTE
 -----
