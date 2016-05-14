@@ -35,7 +35,7 @@ This project is just getting started, non-functional as of yet.
 Distributed master election and locking in mongodb
 
 * Free software: GPLv3
-* Documentation: https://mongoelector.readthedocs.org.
+* Documentation: https://mongoelector.readthedocs.io.
 
 Features
 --------
