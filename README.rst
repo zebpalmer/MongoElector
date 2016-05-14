@@ -5,10 +5,6 @@ MongoElector
 .. image:: https://img.shields.io/pypi/v/mongoelector.svg
         :target: https://pypi.python.org/pypi/mongoelector
 
-.. image:: https://badge.waffle.io/zebpalmer/MongoElector.png?label=ready&title=Ready 
-        :target: https://waffle.io/zebpalmer/MongoElector
-        :alt: 'Stories in Ready'
-
 .. image:: https://img.shields.io/travis/zebpalmer/MongoElector.svg
         :target: https://travis-ci.org/zebpalmer/MongoElector
 
@@ -23,6 +19,10 @@ MongoElector
 .. image:: https://www.quantifiedcode.com/api/v1/project/7468e43a12e54973aebd9790bff8116d/badge.svg
         :target: https://www.quantifiedcode.com/app/project/7468e43a12e54973aebd9790bff8116d
         :alt: Code issues
+
+.. image:: https://badge.waffle.io/zebpalmer/MongoElector.png?label=ready&title=Ready 
+        :target: https://waffle.io/zebpalmer/MongoElector
+        :alt: 'Stories in Ready'
 
 
 
