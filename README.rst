@@ -12,6 +12,11 @@ MongoElector
         :target: https://readthedocs.org/projects/mongoelector/?badge=latest
         :alt: Documentation Status
 
+NOTE
+-----
+
+This project is just getting started, non-functional as of yet. 
+
 
 Distributed master election and locking in mongodb
 
