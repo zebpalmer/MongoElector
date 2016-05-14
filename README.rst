@@ -1,3 +1,6 @@
+.. image:: https://badge.waffle.io/zebpalmer/MongoElector.png?label=ready&title=Ready 
+ :target: https://waffle.io/zebpalmer/MongoElector
+ :alt: 'Stories in Ready'
 ===============================
 MongoElector
 ===============================
