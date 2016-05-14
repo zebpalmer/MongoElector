@@ -21,6 +21,8 @@ deploy:
       LzFENnMvdWRNRmpoZHZDK3grSnhoWGo0enNQdnVIeGRkTjZIcy9ucU1TeUg4TnZlL3VpcVFzSlhx
       Q2xHME1RSXljNU45OWhpUEU3Yk10MW9COVV4SEpHOTBmWFFsV3I1UktpUHRDaDRxRnBacXVnbEpG
       Nkc3d3Q3RjRuVlpyMWVMSzJkUEJyN1JpaXYzeStuNm1qQ0t2THM5SGN4WnNJRmFXVUw4VWoxVDA9
+services:
+  - mongodb
 env:
 - TOXENV=py35
 - TOXENV=py34
@@ -31,4 +33,6 @@ env:
 install: pip install -U tox
 language: python
 python: 3.5
+before_script:
+  - sleep 15
 script: tox
