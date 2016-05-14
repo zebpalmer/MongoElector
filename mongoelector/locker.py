@@ -52,9 +52,10 @@ class MongoLocker(object):
             return r
         except DuplicateKeyError:
             existing = self._db.find_one({'_id': self.key})
-            countdown = datetime.utcnow() - existing['ts_expire']
+            countdown = (datetime.utcnow() - existing['ts_expire']).total_seconds
             raise LockExists('Lock {} exists on host {}, expries in {} seconds'.format(self.key, 
-                                                                                       existing['host'])) 
+                                                                                       existing['host'],
+                                                                                       countdown)) 
             
     
     def locked(self):
