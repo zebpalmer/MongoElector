@@ -8,15 +8,20 @@ class LockExists(Exception):
     pass
 
 class MongoLocker(object):
-    '''Distributed Lock in MongoDB'''
+    '''
+    Distributed Lock in MongoDB.
+
+    Used by MongoElector, but can be used as a standalone distributed lock.
+    '''
 
     def __init__(self, key=None, dbconn=None, ttl=600):
         '''
-        Create a lock object
-
-
-        by default, lock will expire after 300 seconds
-        if it has not been renewed
+        :param key: Name of distributed lock
+        :type key: str
+        :param dbconn: Client connection to mongodb database
+        :type dbconn: PyMongo db connection
+        :param ttl: Lock will expire (ttl seconds) after aquired unless renewed or released
+        :type ttl: int
         '''
         self.uuid = uuid.uuid4()
         self.host = getfqdn()
@@ -60,7 +65,10 @@ class MongoLocker(object):
 
     def locked(self):
         '''
-        returns status (bool) of lock
+        returns status of lock
+
+        :return: Lock status
+        :rtype: bool
         '''
         locked = False
         res = self._db.find_one({'_id': self.key})
