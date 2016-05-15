@@ -26,10 +26,10 @@ MongoElector
 
 
 
-NOTE
------
-
-This project is just getting started, non-functional as of yet. 
+.. NOTE:: 
+   This project is just getting started and should be considered pre-alpha with most of the intended functionality missing or incomplete.  
+   Expect the API for anything that does work, to change. 
+ 
 
 
 Distributed master election and locking in mongodb
