@@ -21,8 +21,8 @@ class TestMongoelector(unittest.TestCase):
     def tearDown(self):
         pass
 
-    def test_000_something(self):
-        pass
+    def test_000_init(self):
+        MongoElector()
 
 
 if __name__ == '__main__':

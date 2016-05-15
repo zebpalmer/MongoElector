@@ -1,21 +1,21 @@
-import os
 import uuid
-import logging
 from socket import getfqdn
-from threading import Lock
 from datetime import datetime, timedelta
-from pymongo.errors import DuplicateKeyError 
+from pymongo.errors import DuplicateKeyError
 
 class LockExists(Exception):
-    pass 
+    '''Raise when a lock exists'''
+    pass
 
 class MongoLocker(object):
+    '''Distributed Lock in MongoDB'''
+
     def __init__(self, key=None, dbconn=None, ttl=600):
         '''
-        Create a lock object 
-        
-        
-        by default, lock will expire after 300 seconds 
+        Create a lock object
+
+
+        by default, lock will expire after 300 seconds
         if it has not been renewed
         '''
         self.uuid = uuid.uuid4()
@@ -32,16 +32,16 @@ class MongoLocker(object):
                 self._ttl = ttl
             else:
                 raise ValueError("ttl must be int() seconds")
-            
-    
-    def aquire(self, wait=None):
+
+
+    def aquire(self):
         '''
         attempts to aquire the lock
         '''
         try:
             self.ts_created = datetime.utcnow()
-            self.ts_expire = self.ts_created + timedelta(seconds=int(self._ttl))            
-            r = self._db.insert({
+            self.ts_expire = self.ts_created + timedelta(seconds=int(self._ttl))
+            res = self._db.insert({
                 '_id': self.key,
                 'locked': True,
                 'host': self.host,
@@ -49,33 +49,32 @@ class MongoLocker(object):
                 'ts_created': self.ts_created,
                 'ts_expire': self.ts_expire
             })
-            return r
+            return res
         except DuplicateKeyError:
             existing = self._db.find_one({'_id': self.key})
             countdown = (datetime.utcnow() - existing['ts_expire']).total_seconds
-            raise LockExists('Lock {} exists on host {}, expries in {} seconds'.format(self.key, 
+            raise LockExists('Lock {} exists on host {}, expries in {} seconds'.format(self.key,
                                                                                        existing['host'],
-                                                                                       countdown)) 
-            
-    
+                                                                                       countdown))
+
+
     def locked(self):
         '''
         returns status (bool) of lock
         '''
         locked = False
-        r = self._db.find_one({'_id': self.key})
-        if r:
-            if r['ts_expire'] < datetime.utcnow():
+        res = self._db.find_one({'_id': self.key})
+        if res:
+            if res['ts_expire'] < datetime.utcnow():
                 locked = False
-            else:   
-                locked = r['locked']
+            else:
+                locked = res['locked']
         return locked
-        
+
     def release(self):
         '''
         releases lock
         '''
-        self._db.find_and_modify({'_id': self.key, 
+        self._db.find_and_modify({'_id': self.key,
                                   'uuid': self.uuid},
                                  {'$set': {'locked': False}})
-        
