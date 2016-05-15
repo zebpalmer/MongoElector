@@ -15,6 +15,7 @@ Contents:
    installation
    usage
    contributing
+   code
    authors
    history
 
