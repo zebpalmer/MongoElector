@@ -65,7 +65,10 @@ class MongoLocker(object):
 
     def locked(self):
         '''
-        returns status (bool) of lock
+        returns status of lock
+
+        :return: Lock status
+        :rtype: bool
         '''
         locked = False
         res = self._db.find_one({'_id': self.key})
