@@ -1,0 +1,9 @@
+codecov:
+  token: 11035c59-c6ef-40ab-9439-de408c37fbc4
+  branch: master
+  bot: null
+
+coverage:
+  precision: 2
+  round: down
+  range: "70...100"
