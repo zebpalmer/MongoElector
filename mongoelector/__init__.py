@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import
-from .locker import MongoLocker
+from .locker import MongoLocker, LockExists, AquireTimeout
 from .elector import MongoElector
 
 __all__ = ['MongoLocker', 'MongoElector']
