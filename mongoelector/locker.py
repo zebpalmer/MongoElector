@@ -43,7 +43,7 @@ class MongoLocker(object):
                 raise ValueError("ttl must be int() seconds")
 
     @staticmethod
-    def aquireretry(blocking, start, timeout, count):
+    def _aquireretry(blocking, start, timeout, count):
         if blocking is False and count > 0:
             return False
         if blocking is True and count == 0:
@@ -62,7 +62,7 @@ class MongoLocker(object):
             raise ValueError("Blocking can't be false with a timeout set")
         count = 0
         start = datetime.utcnow()
-        while self.aquireretry(blocking, start, timeout, count):
+        while self._aquireretry(blocking, start, timeout, count):
             count += 1
             try:
                 # force cleanup
@@ -126,6 +126,9 @@ class MongoLocker(object):
                                  {'$set': {'locked': False}})
 
     def touch(self):
+        '''
+        Renews lock expiration timestamp
+        '''
         ts_expire = self.ts_created + timedelta(seconds=int(self._ttl))
         self._db.find_and_modify({'_id': self.key,
                                         'uuid': self.uuid,
