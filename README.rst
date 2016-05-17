@@ -20,13 +20,8 @@ MongoElector
         :target: https://readthedocs.org/projects/mongoelector/?badge=latest
         :alt: Documentation Status
 
-.. image:: https://www.quantifiedcode.com/api/v1/project/7468e43a12e54973aebd9790bff8116d/badge.svg
-        :target: https://www.quantifiedcode.com/app/project/7468e43a12e54973aebd9790bff8116d
-        :alt: Code issues
-
-.. image:: https://badge.waffle.io/zebpalmer/MongoElector.png?label=ready&title=Ready 
-        :target: https://waffle.io/zebpalmer/MongoElector
-        :alt: 'Stories in Ready'
+.. image:: https://api.codacy.com/project/badge/Grade/9b0eca961d57462aac560bbee862eee7    
+        :target: https://www.codacy.com/app/zeb/MongoElector?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=zebpalmer/MongoElector&amp;utm_campaign=Badge_Grade
 
 
 

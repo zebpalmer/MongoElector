@@ -23,19 +23,19 @@ import unittest
 class TestMongoLocker(unittest.TestCase):
 
     def setUp(self):
-        db = MongoClient().mongolocker
-        db.locks.drop()       
+        db = MongoClient().mongolocker.locks
+        db.locks.drop()
 
     def tearDown(self):
-        locks = MongoClient().mongolocker.locks       
+        locks = MongoClient().mongolocker.locks
         locks.drop()
 
     def test_001_init(self):
-        db = MongoClient().mongolocker
+        db = MongoClient().mongolocker.locks
         MongoLocker(key='testinit', dbconn=db)
-        
+
     def test_002_cycle(self):
-        db = MongoClient().mongolocker        
+        db = MongoClient().mongolocker.locks
         ml = MongoLocker(key='testinit', dbconn=db)
         ml.aquire()
         self.assertTrue(ml.locked())
