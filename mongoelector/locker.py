@@ -83,14 +83,11 @@ class MongoLocker(object):
                 countdown = (datetime.utcnow() - existing['ts_expire']).total_seconds
                 if not blocking:
                     raise LockExists('Lock {} exists on host {}, expries in {} seconds'.format(self.key,
-                                                                                           existing['host'],
-                                                                                           countdown))
+                                                                                               existing['host'],
+                                                                                               countdown))
                 else:
                     sleep(step)
-            else:
-                return True
-        else:
-            raise AquireTimeout("Timeout reached, lock not aquired")
+        raise AquireTimeout("Timeout reached, lock not aquired")
 
 
     def locked(self):
@@ -114,13 +111,10 @@ class MongoLocker(object):
         returns true if lock is owned by this instance of mongolocker
         False if not.
         '''
-        if self._db.find_one({'_id': self.key,
-                              'uuid': self.uuid,
-                              'locked': True,
-                              'ts_expire': {'$gt': datetime.utcnow(),},}):
-            return True
-        else:
-            return False
+        return bool(self._db.find_one({'_id': self.key,
+                                       'uuid': self.uuid,
+                                       'locked': True,
+                                       'ts_expire': {'$gt': datetime.utcnow(),},}))
 
 
     def release(self):
@@ -133,7 +127,7 @@ class MongoLocker(object):
 
     def touch(self):
         ts_expire = self.ts_created + timedelta(seconds=int(self._ttl))
-        res = self._db.find_and_modify({'_id': self.key,
+        self._db.find_and_modify({'_id': self.key,
                                         'uuid': self.uuid,
                                         'locked': True,},
                                        {'$set': {'ts_expire': ts_expire}})
