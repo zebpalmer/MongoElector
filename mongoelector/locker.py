@@ -54,9 +54,22 @@ class MongoLocker(object):
             else:
                 return True
 
-    def aquire(self, blocking=True, timeout=None, step=0.25):
+    def aquire(self, blocking=True, timeout=None, step=0.25, force=False):
         '''
         attempts to aquire the lock
+
+        :param blocking: If true (default), method call
+        will wait (timeout) until lock is aquired.
+        :type key: bool
+        :param timeout: a blocking call will fail after timeout in seconds
+        if the lock hasn't been aquired yet.
+        :type timeout: int
+        :param step: delay between aquire attempts
+        :type step: float or int
+        :param force: CAUTION: will forcibly take ownership of the lock
+        :type force: bool
+
+
         '''
         if blocking is False and timeout:
             raise ValueError("Blocking can't be false with a timeout set")
@@ -69,14 +82,16 @@ class MongoLocker(object):
                 self._db.remove({'ts_expire': {'$lt': datetime.utcnow(),},})
                 self.ts_created = datetime.utcnow()
                 self.ts_expire = self.ts_created + timedelta(seconds=int(self._ttl))
-                res = self._db.insert({
-                    '_id': self.key,
-                    'locked': True,
-                    'host': self.host,
-                    'uuid': self.uuid,
-                    'ts_created': self.ts_created,
-                    'ts_expire': self.ts_expire
-                })
+                payload = {'_id': self.key,
+                           'locked': True,
+                           'host': self.host,
+                           'uuid': self.uuid,
+                           'ts_created': self.ts_created,
+                           'ts_expire': self.ts_expire}
+                if force:
+                    res = self._db.find_one_and_replace({'_id': key,}, payload, new=True)
+                else:
+                    res = self._db.insert(payload)
                 return res
             except DuplicateKeyError:
                 existing = self._db.find_one({'_id': self.key})
@@ -108,8 +123,12 @@ class MongoLocker(object):
 
     def owned(self):
         '''
-        returns true if lock is owned by this instance of mongolocker
-        False if not.
+        Determines if self is the owner of the lock object.
+        This verifies the instance uuid matches the
+        uuid of the lock record in the db.
+
+        :return: Owner status
+        :rtype: bool
         '''
         return bool(self._db.find_one({'_id': self.key,
                                        'uuid': self.uuid,
@@ -117,9 +136,13 @@ class MongoLocker(object):
                                        'ts_expire': {'$gt': datetime.utcnow(),},}))
 
 
-    def release(self):
+    def release(self, force=True):
         '''
         releases lock
+
+        :param force: CAUTION: Forces the release to happen,
+        even if the local instance isn't the owner.
+        :type force: bool
         '''
         self._db.find_and_modify({'_id': self.key,
                                   'uuid': self.uuid},
@@ -128,6 +151,8 @@ class MongoLocker(object):
     def touch(self):
         '''
         Renews lock expiration timestamp
+        :return: new exipiration timestamp
+        :rtype: datetime
         '''
         ts_expire = self.ts_created + timedelta(seconds=int(self._ttl))
         self._db.find_and_modify({'_id': self.key,
