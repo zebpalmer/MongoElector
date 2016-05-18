@@ -13,9 +13,13 @@ class AquireTimeout(Exception):
 
 class MongoLocker(object):
     '''
-    Distributed Lock in MongoDB.
+    Distributed lock object backed by MongoDB.
 
-    Used by MongoElector, but can be used as a standalone distributed lock.
+    Inteded to mimic standard lib Lock object as much as
+    reasonable. This object is used by MongoElector, but
+    is perfectly happy being used as a standalone distributed
+    locking object.
+
     '''
 
     def __init__(self, key=None, dbconn=None, ttl=600):
@@ -56,13 +60,14 @@ class MongoLocker(object):
 
     def aquire(self, blocking=True, timeout=None, step=0.25, force=False):
         '''
-        attempts to aquire the lock
+        Attempts to aquire the lock, will block and retry
+        indefinitly by default. Can be configured not to block,
+        or to have a timeout. You can also force the aquisition
+        if you have a really good reason to do so.
 
-        :param blocking: If true (default), method call
-        will wait (timeout) until lock is aquired.
+        :param blocking: If true (default), will wait until lock is aquired.
         :type key: bool
-        :param timeout: a blocking call will fail after timeout in seconds
-        if the lock hasn't been aquired yet.
+        :param timeout: blocking aquire will fail after timeout in seconds if the lock hasn't been aquired yet.
         :type timeout: int
         :param step: delay between aquire attempts
         :type step: float or int
@@ -89,7 +94,7 @@ class MongoLocker(object):
                            'ts_created': self.ts_created,
                            'ts_expire': self.ts_expire}
                 if force:
-                    res = self._db.find_one_and_replace({'_id': key,}, payload, new=True)
+                    res = self._db.find_one_and_replace({'_id': self.key,}, payload, new=True)
                 else:
                     res = self._db.insert(payload)
                 return res
@@ -107,7 +112,12 @@ class MongoLocker(object):
 
     def locked(self):
         '''
-        returns status of lock
+        Returns current status of the lock, but does not indicate if
+        the current instance has ownership or not. (for that, use 'self.owned()')
+        This is a 'look before you leap' option. For example, it can be used
+        to ensure that some process is owns the lock and is doing the associated work.
+        Obviously this method does not guaruntee that the current instance will be
+        successful in obtaining the lock on a subseqent aquire.
 
         :return: Lock status
         :rtype: bool
@@ -136,17 +146,22 @@ class MongoLocker(object):
                                        'ts_expire': {'$gt': datetime.utcnow(),},}))
 
 
-    def release(self, force=True):
+    def release(self, force=False):
         '''
-        releases lock
+        releases lock if owned by the current instance.
 
         :param force: CAUTION: Forces the release to happen,
-        even if the local instance isn't the owner.
+        even if the local instance isn't the lock owner.
         :type force: bool
         '''
-        self._db.find_and_modify({'_id': self.key,
-                                  'uuid': self.uuid},
-                                 {'$set': {'locked': False}})
+        if not force:
+            query = {'_id': self.key,
+                     'uuid': self.uuid}
+        else:
+            query = {'_id': self.key,
+                     'uuid': self.uuid}
+            self._db.find_and_modify(query, {'$set': {'locked': False}})
+
 
     def touch(self):
         '''
@@ -156,11 +171,9 @@ class MongoLocker(object):
         '''
         ts_expire = self.ts_created + timedelta(seconds=int(self._ttl))
         self._db.find_and_modify({'_id': self.key,
-                                        'uuid': self.uuid,
-                                        'locked': True,},
-                                       {'$set': {'ts_expire': ts_expire}})
+                                  'uuid': self.uuid,
+                                  'locked': True,},
+                                 {'$set': {'ts_expire': ts_expire}})
         self.ts_expire = ts_expire
         return self.ts_expire
-
-
 
