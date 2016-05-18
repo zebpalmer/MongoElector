@@ -8,7 +8,7 @@ class LockExists(Exception):
     '''Raise when a lock exists'''
     pass
 
-class AquireTimeout(Exception):
+class AcquireTimeout(Exception):
     '''Raise when can't get lock'''
 
 class MongoLocker(object):
@@ -22,24 +22,35 @@ class MongoLocker(object):
 
     '''
 
-    def __init__(self, key=None, dbconn=None, ttl=600):
+    def __init__(self, key, dbconn, dbname='mongoelector',
+                 dbcollection = 'mongolocker', ttl=600, timeparanoid=1):
         '''
         :param key: Name of distributed lock
         :type key: str
         :param dbconn: Pymongo client connection to mongodb collection
         :type dbconn: PyMongo db connection
-        :param ttl: Lock will expire (ttl seconds) after aquired unless renewed or released
+        :param dbname: name of database (defaults to 'mongoelector')
+        :type dbname: str
+        :param dbname: name of collection (defaults to 'mongoelector')
+        :type dbname: str
+        :param ttl: Lock will expire (ttl seconds) after acquired unless renewed or released
         :type ttl: int
         '''
         self.uuid = str(uuid.uuid4())
         self.host = getfqdn()
         self.ts_expire = None
         self.ts_created = None
+        self.timeparanoid = timeparanoid
+        self.dbname = dbname
+        self.dbcollection = dbcollection
+        self._sanetime = None
+        self._maxoffset = 0.5
         if key and dbconn:
             self.key = key
-            self._db = dbconn
+            self._db = getattr(getattr(dbconn, dbname), dbcollection)
+            self._dbconn = dbconn
         else:
-            raise ValueError("must provide key name and pyongo connection instance")
+            raise ValueError("must provide key name and pyongo connection")
         if ttl:
             if isinstance(ttl, int):
                 self._ttl = ttl
@@ -47,7 +58,7 @@ class MongoLocker(object):
                 raise ValueError("ttl must be int() seconds")
 
     @staticmethod
-    def _aquireretry(blocking, start, timeout, count):
+    def _acquireretry(blocking, start, timeout, count):
         if blocking is False and count > 0:
             return False
         if blocking is True and count == 0:
@@ -58,29 +69,47 @@ class MongoLocker(object):
             else:
                 return True
 
-    def aquire(self, blocking=True, timeout=None, step=0.25, force=False):
+    def _verifytime(self):
+        timeok = True
+        serverlocal = getattr(self._dbconn, self.dbname).command('serverStatus')['localTime']
+        pytime = datetime.utcnow()
+        delta = pytime - serverlocal
+        offset = abs(delta.total_seconds())
+        if offset > self._maxoffset:
+            timeok = False
+        return timeok, offset
+
+
+
+    def acquire(self, blocking=True, timeout=None, step=0.25, force=False):
         '''
-        Attempts to aquire the lock, will block and retry
+        Attempts to acquire the lock, will block and retry
         indefinitly by default. Can be configured not to block,
         or to have a timeout. You can also force the aquisition
         if you have a really good reason to do so.
 
-        :param blocking: If true (default), will wait until lock is aquired.
+        :param blocking: If true (default), will wait until lock is acquired.
         :type key: bool
-        :param timeout: blocking aquire will fail after timeout in seconds if the lock hasn't been aquired yet.
+        :param timeout: blocking acquire will fail after timeout in seconds if the lock hasn't been acquired yet.
         :type timeout: int
-        :param step: delay between aquire attempts
+        :param step: delay between acquire attempts
         :type step: float or int
         :param force: CAUTION: will forcibly take ownership of the lock
         :type force: bool
 
 
         '''
+        if self.timeparanoid is True and self._sanetime is None:
+            timeok, offset = self._verifytime()
+            if timeok:
+                self._sanetime = True
+            else:
+                raise Exception("Time offset compared to mongodb is too high {}".format(round(offset, 2)))
         if blocking is False and timeout:
             raise ValueError("Blocking can't be false with a timeout set")
         count = 0
         start = datetime.utcnow()
-        while self._aquireretry(blocking, start, timeout, count):
+        while self._acquireretry(blocking, start, timeout, count):
             count += 1
             try:
                 # force cleanup
@@ -107,7 +136,7 @@ class MongoLocker(object):
                                                                                                countdown))
                 else:
                     sleep(step)
-        raise AquireTimeout("Timeout reached, lock not aquired")
+        raise AcquireTimeout("Timeout reached, lock not acquired")
 
 
     def locked(self):
@@ -117,7 +146,7 @@ class MongoLocker(object):
         This is a 'look before you leap' option. For example, it can be used
         to ensure that some process is owns the lock and is doing the associated work.
         Obviously this method does not guaruntee that the current instance will be
-        successful in obtaining the lock on a subseqent aquire.
+        successful in obtaining the lock on a subseqent acquire.
 
         :return: Lock status
         :rtype: bool
@@ -155,12 +184,11 @@ class MongoLocker(object):
         :type force: bool
         '''
         if not force:
-            query = {'_id': self.key,
-                     'uuid': self.uuid}
+            query = {'_id': self.key,}
         else:
             query = {'_id': self.key,
                      'uuid': self.uuid}
-            self._db.find_and_modify(query, {'$set': {'locked': False}})
+        self._db.find_and_modify(query, {'$set': {'locked': False}})
 
 
     def touch(self):
