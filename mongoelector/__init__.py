@@ -7,5 +7,5 @@ __all__ = ['MongoLocker', 'MongoElector']
 
 __author__ = 'Zeb Palmer'
 __email__ = 'zeb@zebpalmer.com'
-__version__ = '0.1.4'
+__version__ = '0.1.5'
 
