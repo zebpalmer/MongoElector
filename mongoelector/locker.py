@@ -2,6 +2,7 @@ import uuid
 from socket import getfqdn
 from time import sleep
 from datetime import datetime, timedelta
+from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
 
 class LockExists(Exception):
@@ -197,11 +198,15 @@ class MongoLocker(object):
         :return: new exipiration timestamp
         :rtype: datetime
         '''
-        ts_expire = self.ts_created + timedelta(seconds=int(self._ttl))
-        self._db.find_and_modify({'_id': self.key,
-                                  'uuid': self.uuid,
-                                  'locked': True,},
-                                 {'$set': {'ts_expire': ts_expire}})
-        self.ts_expire = ts_expire
-        return self.ts_expire
+        ts_expire = datetime.utcnow() + timedelta(seconds=int(self._ttl))
+        result = self._db.find_one_and_update({'_id': self.key,
+                                               'uuid': self.uuid,
+                                               'locked': True,},
+                                              {'$set': {'ts_expire': ts_expire}},
+                                              return_document=ReturnDocument.AFTER)
+        if result:
+            self.ts_expire = result['ts_expire']
+            return True
+        else:
+            return False
 
