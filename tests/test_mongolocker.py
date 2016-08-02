@@ -36,10 +36,17 @@ class TestMongoLocker(unittest.TestCase):
 
     def test_002_cycle(self):
         db = MongoClient()
-        ml = MongoLocker('testinit', db)
+        ml = MongoLocker('testcycle', db)
+        if ml.locked():  # cleanup any leftovers
+            ml.release(force=False)
         ml.acquire()
         self.assertTrue(ml.locked())
+        self.assertTrue(ml.owned())
         ml.release()
+        self.assertFalse(ml.owned())
+        self.assertFalse(ml.locked())
+        ml.acquire()
+        ml.release(force=False)
         self.assertFalse(ml.locked())
 
     def test_003_paranoid(self):
