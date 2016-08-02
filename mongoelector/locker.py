@@ -46,6 +46,7 @@ class MongoLocker(object):
         self.dbcollection = dbcollection
         self._sanetime = None
         self._maxoffset = 0.5
+        self._ttl_indexed = None
         if key and dbconn:
             self.key = key
             self._db = getattr(getattr(dbconn, dbname), dbcollection)
@@ -53,10 +54,16 @@ class MongoLocker(object):
         else:
             raise ValueError("must provide key name and pyongo connection")
         if ttl:
+            self._setup_ttl()
             if isinstance(ttl, int):
                 self._ttl = ttl
             else:
                 raise ValueError("ttl must be int() seconds")
+
+    def _setup_ttl(self):
+        self._db.create_index('ts_expire', expireAfterSeconds=1)
+        self._ttl_indexed = True
+
 
     @staticmethod
     def _acquireretry(blocking, start, timeout, count):
@@ -153,7 +160,7 @@ class MongoLocker(object):
         :rtype: bool
         '''
         locked = False
-        res = self._db.find_one({'_id': self.key})
+        res = self._db.find_one({'_id': self.key, "$where": 'this.ts_expire < new Date()',})
         if res:
             if res['ts_expire'] < datetime.utcnow():
                 locked = False
