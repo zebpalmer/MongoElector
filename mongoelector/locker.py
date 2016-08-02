@@ -67,8 +67,10 @@ class MongoLocker(object):
 
     @staticmethod
     def _acquireretry(blocking, start, timeout, count):
-        if blocking is False and count > 0:
-            return False
+        if blocking is False:
+            if count > 0:
+                return False
+            return True
         if blocking is True and count == 0:
             return True
         if timeout:
@@ -189,7 +191,7 @@ class MongoLocker(object):
         even if the local instance isn't the lock owner.
         :type force: bool
         '''
-        if not force:
+        if force:
             query = {'_id': self.key,}
         else:
             query = {'_id': self.key,
