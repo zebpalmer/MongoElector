@@ -24,15 +24,15 @@ class MongoLocker(object):
     '''
 
     def __init__(self, key, dbconn, dbname='mongoelector',
-                 dbcollection = 'mongolocker', ttl=600, timeparanoid=1):
+                 dbcollection = 'mongolocker', ttl=600, timeparanoid=True):
         '''
         :param key: Name of distributed lock
         :type key: str
-        :param dbconn: Pymongo client connection to mongodb collection
+        :param dbconn: Pymongo client connection to mongodb
         :type dbconn: PyMongo db connection
         :param dbname: name of database (defaults to 'mongoelector')
         :type dbname: str
-        :param dbname: name of collection (defaults to 'mongoelector')
+        :param dbname: name of collection (defaults to 'mongolocker')
         :type dbname: str
         :param ttl: Lock will expire (ttl seconds) after acquired unless renewed or released
         :type ttl: int
@@ -46,6 +46,7 @@ class MongoLocker(object):
         self.dbcollection = dbcollection
         self._sanetime = None
         self._maxoffset = 0.5
+        self._ttl_indexed = None
         if key and dbconn:
             self.key = key
             self._db = getattr(getattr(dbconn, dbname), dbcollection)
@@ -53,10 +54,16 @@ class MongoLocker(object):
         else:
             raise ValueError("must provide key name and pyongo connection")
         if ttl:
+            self._setup_ttl()
             if isinstance(ttl, int):
                 self._ttl = ttl
             else:
                 raise ValueError("ttl must be int() seconds")
+
+    def _setup_ttl(self):
+        self._db.create_index('ts_expire', expireAfterSeconds=1)
+        self._ttl_indexed = True
+
 
     @staticmethod
     def _acquireretry(blocking, start, timeout, count):
@@ -113,8 +120,6 @@ class MongoLocker(object):
         while self._acquireretry(blocking, start, timeout, count):
             count += 1
             try:
-                # force cleanup
-                self._db.remove({'ts_expire': {'$lt': datetime.utcnow(),},})
                 self.ts_created = datetime.utcnow()
                 self.ts_expire = self.ts_created + timedelta(seconds=int(self._ttl))
                 payload = {'_id': self.key,
@@ -130,7 +135,7 @@ class MongoLocker(object):
                 return res
             except DuplicateKeyError:
                 existing = self._db.find_one({'_id': self.key})
-                countdown = (datetime.utcnow() - existing['ts_expire']).total_seconds
+                countdown = (datetime.utcnow() - existing['ts_expire']).total_seconds()
                 if not blocking:
                     raise LockExists('Lock {} exists on host {}, expries in {} seconds'.format(self.key,
                                                                                                existing['host'],
@@ -153,7 +158,7 @@ class MongoLocker(object):
         :rtype: bool
         '''
         locked = False
-        res = self._db.find_one({'_id': self.key})
+        res = self._db.find_one({'_id': self.key, "$where": 'this.ts_expire > new Date()',})
         if res:
             if res['ts_expire'] < datetime.utcnow():
                 locked = False
@@ -173,7 +178,7 @@ class MongoLocker(object):
         return bool(self._db.find_one({'_id': self.key,
                                        'uuid': self.uuid,
                                        'locked': True,
-                                       'ts_expire': {'$gt': datetime.utcnow(),},}))
+                                       '$where': 'this.ts_expire > new Date()',}))
 
 
     def release(self, force=False):
@@ -189,7 +194,7 @@ class MongoLocker(object):
         else:
             query = {'_id': self.key,
                      'uuid': self.uuid}
-        self._db.find_and_modify(query, {'$set': {'locked': False}})
+        self._db.remove(query)
 
 
     def touch(self):

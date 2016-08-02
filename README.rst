@@ -2,6 +2,10 @@
 MongoElector
 ===============================
 
+.. image:: https://badges.gitter.im/zebpalmer/MongoElector.svg
+   :alt: Join the chat at https://gitter.im/zebpalmer/MongoElector
+   :target: https://gitter.im/zebpalmer/MongoElector?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge
+
 .. image:: https://img.shields.io/pypi/v/mongoelector.svg
         :target: https://pypi.python.org/pypi/mongoelector
 

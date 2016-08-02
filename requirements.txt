@@ -1,2 +1,2 @@
-pymongo==3.2.2
+pymongo>=3.2.2
 nose
