@@ -55,8 +55,8 @@ class TestMongoLocker(unittest.TestCase):
 
     def test_004_force_release(self):
         db = MongoClient()
-        ml1 = MongoLocker('testrelease', db)
-        ml2 = MongoLocker('testrelease', db)
+        ml1 = MongoLocker('testrelease', db, dbname='ml_unittest')
+        ml2 = MongoLocker('testrelease', db, dbname='ml_unittest')
         ml1.acquire()
         with self.assertRaises(LockExists):
             ml2.acquire(blocking=False)
