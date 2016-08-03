@@ -23,20 +23,19 @@ import unittest
 class TestMongoLocker(unittest.TestCase):
 
     def setUp(self):
-        db = MongoClient().mongoelector.mongolocker
-        db.locks.drop()
+        MongoClient().ml_unittest.mongolocker.drop()
 
     def tearDown(self):
-        locks = MongoClient().mongoelector.mongolocker
-        locks.drop()
+        MongoClient().ml_unittest.mongolocker.drop()
+
 
     def test_001_init(self):
         db = MongoClient()
-        MongoLocker(key='testinit', dbconn=db)
+        MongoLocker('testinit', db, dbname='ml_unittest')
 
     def test_002_cycle(self):
         db = MongoClient()
-        ml = MongoLocker('testcycle', db)
+        ml = MongoLocker('testcycle', db, dbname='ml_unittest')
         if ml.locked():  # cleanup any leftovers
             ml.release(force=False)
         ml.acquire()
@@ -51,7 +50,7 @@ class TestMongoLocker(unittest.TestCase):
 
     def test_003_paranoid(self):
         db = MongoClient()
-        ml = MongoLocker('testinit', db, timeparanoid=True)
+        ml = MongoLocker('testinit', db, dbname='ml_unittest', timeparanoid=True)
         ml._verifytime()
 
     def test_004_force_release(self):

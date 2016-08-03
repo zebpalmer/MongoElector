@@ -36,6 +36,8 @@ class MongoLocker(object):
         :type dbname: str
         :param ttl: Lock will expire (ttl seconds) after acquired unless renewed or released
         :type ttl: int
+        :param timeparanoid: Sanity check to ensure local server time matches mongodb server time (utc)
+        :type timeparanoid: bool
         '''
         self.uuid = str(uuid.uuid4())
         self.host = getfqdn()
@@ -208,7 +210,8 @@ class MongoLocker(object):
         ts_expire = datetime.utcnow() + timedelta(seconds=int(self._ttl))
         result = self._db.find_one_and_update({'_id': self.key,
                                                'uuid': self.uuid,
-                                               'locked': True,},
+                                               'locked': True,
+                                               '$where': 'this.ts_expire > new Date()'},
                                               {'$set': {'ts_expire': ts_expire}},
                                               return_document=ReturnDocument.AFTER)
         if result:
