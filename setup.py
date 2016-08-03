@@ -24,7 +24,7 @@ test_requirements = [
 
 setup(
     name='mongoelector',
-    version='0.1.6',
+    version='0.2.0',
     description="Distributed master election and locking in mongodb",
     long_description=readme + '\n\n' + history,
     author="Zeb Palmer",
