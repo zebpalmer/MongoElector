@@ -63,7 +63,7 @@ class MongoLocker(object):
                 raise ValueError("ttl must be int() seconds")
 
     def _setup_ttl(self):
-        self._db.create_index('ts_expire', expireAfterSeconds=1)
+        self._db.create_index('ts_expire', expireAfterSeconds=0)
         self._ttl_indexed = True
 
 
