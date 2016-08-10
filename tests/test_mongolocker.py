@@ -34,6 +34,12 @@ class TestMongoLocker(unittest.TestCase):
         """Smoke test"""
         db = MongoClient()
         MongoLocker('testinit', db, dbname='ml_unittest')
+        with self.assertRaises(ValueError):
+            MongoLocker(None, None)
+        with self.assertRaises(ValueError):
+            MongoLocker('testinit', db, ttl='not-an-int')
+
+
 
     def test_002_cycle(self):
         """run some lock cycles"""
@@ -85,6 +91,32 @@ class TestMongoLocker(unittest.TestCase):
         past = datetime.utcnow() - timedelta(minutes=1)
         self.assertFalse(_acquireretry(True, past, 50, 10))  # passed timeout
         self.assertFalse(_acquireretry(False, start, None, 1))  # non-blocking
+
+    def test_006_acquire_force(self):
+        '''Test stealing the lock'''
+        db = MongoClient()
+        a = MongoLocker('testcycle', db, dbname='ml_unittest')
+        b = MongoLocker('testcycle', db, dbname='ml_unittest')
+        a.acquire()
+        self.assertTrue(a.owned())
+        self.assertTrue(b.acquire(force=True))
+        self.assertTrue(b.owned())
+        self.assertFalse(a.owned())
+        a.release()
+        b.release()
+        self.assertFalse(a.locked())
+        self.assertFalse(b.locked())
+
+    def test_007_touch(self):
+        '''ensure touch updates the expiration timestamp'''
+        db = MongoClient()
+        ml = MongoLocker('testcycle', db, dbname='ml_unittest')
+        ml.acquire()
+        start = ml.ts_expire
+        self.assertTrue(ml.touch())
+        end = ml.ts_expire
+        self.assertTrue(end > start)
+
 
 if __name__ == '__main__':
     sys.exit(unittest.main())

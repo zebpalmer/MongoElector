@@ -204,6 +204,7 @@ class MongoLocker(object):
     def touch(self):
         """
         Renews lock expiration timestamp
+
         :return: new expiration timestamp
         :rtype: datetime
         """
@@ -216,6 +217,6 @@ class MongoLocker(object):
                                               return_document=ReturnDocument.AFTER)
         if result:
             self.ts_expire = result['ts_expire']
-            return True
+            return self.ts_expire
         else:
             return False
