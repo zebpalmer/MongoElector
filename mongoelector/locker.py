@@ -71,6 +71,7 @@ class MongoLocker(object):
 
     @staticmethod
     def _acquireretry(blocking, start, timeout, count):
+        """Determine if a retry is appropriate"""
         if blocking is False and timeout:
             raise ValueError("Blocking can't be false with a timeout set")
         if blocking is False:
@@ -87,6 +88,7 @@ class MongoLocker(object):
                 return True
 
     def _verifytime(self):
+        """verify database server's time matches local machine time"""
         timeok = True
         serverlocal = getattr(self._dbconn, self.dbname).command('serverStatus')['localTime']
         pytime = datetime.utcnow()
