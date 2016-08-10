@@ -10,24 +10,20 @@ Tests for `mongoelector` module.
 
 import os
 import sys
-sys.path.insert(0, os.path.abspath('..'))
-
-
-from mongoelector import MongoLocker, LockExists
-from pymongo import MongoClient
-
 import unittest
-
+sys.path.insert(0, os.path.abspath('..'))
+# noinspection PyPep8
+from mongoelector import MongoLocker, LockExists
+# noinspection PyPep8
+from pymongo import MongoClient
 
 
 class TestMongoLocker(unittest.TestCase):
-
     def setUp(self):
         MongoClient().ml_unittest.mongolocker.drop()
 
     def tearDown(self):
         MongoClient().ml_unittest.mongolocker.drop()
-
 
     def test_001_init(self):
         db = MongoClient()

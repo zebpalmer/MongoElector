@@ -5,27 +5,30 @@ from datetime import datetime, timedelta
 from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
 
+
 class LockExists(Exception):
-    '''Raise when a lock exists'''
+    """Raise when a lock exists"""
     pass
 
+
 class AcquireTimeout(Exception):
-    '''Raise when can't get lock'''
+    """Raise when can't get lock"""
+
 
 class MongoLocker(object):
-    '''
+    """
     Distributed lock object backed by MongoDB.
 
-    Inteded to mimic standard lib Lock object as much as
+    Intended to mimic standard lib Lock object as much as
     reasonable. This object is used by MongoElector, but
     is perfectly happy being used as a standalone distributed
     locking object.
 
-    '''
+    """
 
     def __init__(self, key, dbconn, dbname='mongoelector',
-                 dbcollection = 'mongolocker', ttl=600, timeparanoid=True):
-        '''
+                 dbcollection='mongolocker', ttl=600, timeparanoid=True):
+        """
         :param key: Name of distributed lock
         :type key: str
         :param dbconn: Pymongo client connection to mongodb
@@ -38,7 +41,7 @@ class MongoLocker(object):
         :type ttl: int
         :param timeparanoid: Sanity check to ensure local server time matches mongodb server time (utc)
         :type timeparanoid: bool
-        '''
+        """
         self.uuid = str(uuid.uuid4())
         self.host = getfqdn()
         self.ts_expire = None
@@ -66,7 +69,6 @@ class MongoLocker(object):
         self._db.create_index('ts_expire', expireAfterSeconds=0)
         self._ttl_indexed = True
 
-
     @staticmethod
     def _acquireretry(blocking, start, timeout, count):
         if blocking is False:
@@ -91,17 +93,15 @@ class MongoLocker(object):
             timeok = False
         return timeok, offset
 
-
-
     def acquire(self, blocking=True, timeout=None, step=0.25, force=False):
-        '''
+        """
         Attempts to acquire the lock, will block and retry
-        indefinitly by default. Can be configured not to block,
-        or to have a timeout. You can also force the aquisition
+        indefinitely by default. Can be configured not to block,
+        or to have a timeout. You can also force the acquisition
         if you have a really good reason to do so.
 
         :param blocking: If true (default), will wait until lock is acquired.
-        :type key: bool
+        :type blocking: bool
         :param timeout: blocking acquire will fail after timeout in seconds if the lock hasn't been acquired yet.
         :type timeout: int
         :param step: delay between acquire attempts
@@ -110,7 +110,7 @@ class MongoLocker(object):
         :type force: bool
 
 
-        '''
+        """
         if self.timeparanoid is True and self._sanetime is None:
             timeok, offset = self._verifytime()
             if timeok:
@@ -133,7 +133,7 @@ class MongoLocker(object):
                            'ts_created': self.ts_created,
                            'ts_expire': self.ts_expire}
                 if force:
-                    res = self._db.find_one_and_replace({'_id': self.key,}, payload, new=True)
+                    res = self._db.find_one_and_replace({'_id': self.key}, payload, new=True)
                 else:
                     res = self._db.insert(payload)
                 return res
@@ -141,28 +141,27 @@ class MongoLocker(object):
                 existing = self._db.find_one({'_id': self.key})
                 countdown = (datetime.utcnow() - existing['ts_expire']).total_seconds()
                 if not blocking:
-                    raise LockExists('Lock {} exists on host {}, expries in {} seconds'.format(self.key,
+                    raise LockExists('Lock {} exists on host {}, expires in {} seconds'.format(self.key,
                                                                                                existing['host'],
                                                                                                countdown))
                 else:
                     sleep(step)
         raise AcquireTimeout("Timeout reached, lock not acquired")
 
-
     def locked(self):
-        '''
+        """
         Returns current status of the lock, but does not indicate if
         the current instance has ownership or not. (for that, use 'self.owned()')
         This is a 'look before you leap' option. For example, it can be used
         to ensure that some process is owns the lock and is doing the associated work.
-        Obviously this method does not guaruntee that the current instance will be
-        successful in obtaining the lock on a subseqent acquire.
+        Obviously this method does not guarantee that the current instance will be
+        successful in obtaining the lock on a subsequent acquire.
 
         :return: Lock status
         :rtype: bool
-        '''
+        """
         locked = False
-        res = self._db.find_one({'_id': self.key, "$where": 'this.ts_expire > new Date()',})
+        res = self._db.find_one({'_id': self.key, "$where": 'this.ts_expire > new Date()'})
         if res:
             if res['ts_expire'] < datetime.utcnow():
                 locked = False
@@ -171,42 +170,40 @@ class MongoLocker(object):
         return locked
 
     def owned(self):
-        '''
+        """
         Determines if self is the owner of the lock object.
         This verifies the instance uuid matches the
         uuid of the lock record in the db.
 
         :return: Owner status
         :rtype: bool
-        '''
+        """
         return bool(self._db.find_one({'_id': self.key,
                                        'uuid': self.uuid,
                                        'locked': True,
-                                       '$where': 'this.ts_expire > new Date()',}))
-
+                                       '$where': 'this.ts_expire > new Date()'}))
 
     def release(self, force=False):
-        '''
+        """
         releases lock if owned by the current instance.
 
         :param force: CAUTION: Forces the release to happen,
         even if the local instance isn't the lock owner.
         :type force: bool
-        '''
+        """
         if force:
-            query = {'_id': self.key,}
+            query = {'_id': self.key}
         else:
             query = {'_id': self.key,
                      'uuid': self.uuid}
         self._db.remove(query)
 
-
     def touch(self):
-        '''
+        """
         Renews lock expiration timestamp
-        :return: new exipiration timestamp
+        :return: new expiration timestamp
         :rtype: datetime
-        '''
+        """
         ts_expire = datetime.utcnow() + timedelta(seconds=int(self._ttl))
         result = self._db.find_one_and_update({'_id': self.key,
                                                'uuid': self.uuid,
@@ -219,4 +216,3 @@ class MongoLocker(object):
             return True
         else:
             return False
-
