@@ -166,10 +166,7 @@ class MongoLocker(object):
         locked = False
         res = self._db.find_one({'_id': self.key, "$where": 'this.ts_expire > new Date()'})
         if res:
-            if res['ts_expire'] < datetime.utcnow():
-                locked = False
-            else:
-                locked = res['locked']
+            locked = res['locked']
         return locked
 
     def owned(self):
