@@ -11,6 +11,7 @@ Tests for `mongoelector` module.
 import os
 import sys
 import unittest
+from datetime import datetime, timedelta
 sys.path.insert(0, os.path.abspath('..'))
 # noinspection PyPep8
 from mongoelector import MongoLocker, LockExists
@@ -63,6 +64,19 @@ class TestMongoLocker(unittest.TestCase):
         self.assertFalse(ml1.locked())
         self.assertFalse(ml1.owned())
 
+    def test_005_acquire_retry(self):
+        _acquireretry = MongoLocker._acquireretry
+        start = datetime.utcnow()
+        count = 0
+        self.assertTrue(_acquireretry(True, start, 0, 0))  # initial entry
+        with self.assertRaises(ValueError):
+            _acquireretry(False, start, 30, 0)  # blocking false w/ timeout
+        start = datetime.utcnow()
+        self.assertTrue(_acquireretry(True, start, 10, 1))  # blocking true, count > 0
+        self.assertTrue(_acquireretry(True, start, 10, 0))  # blocking true, count 0
+        past = datetime.utcnow() - timedelta(minutes=1)
+        self.assertFalse(_acquireretry(True, past, 50, 10))  # passed timeout
+        self.assertFalse(_acquireretry(False, start, None, 1))  # non-blocking
 
 if __name__ == '__main__':
     sys.exit(unittest.main())

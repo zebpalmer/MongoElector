@@ -71,13 +71,16 @@ class MongoLocker(object):
 
     @staticmethod
     def _acquireretry(blocking, start, timeout, count):
+        if blocking is False and timeout:
+            raise ValueError("Blocking can't be false with a timeout set")
         if blocking is False:
             if count > 0:
                 return False
-            return True
-        if blocking is True and count == 0:
-            return True
-        if timeout:
+            else:
+                return True
+        else:  # blocking true
+            if count == 0:
+                return True
             if (datetime.utcnow() - start) > timedelta(seconds=timeout):
                 return False
             else:
@@ -111,14 +114,12 @@ class MongoLocker(object):
 
 
         """
-        if self.timeparanoid is True and self._sanetime is None:
+        if self._sanetime is None and self.timeparanoid is True:
             timeok, offset = self._verifytime()
             if timeok:
                 self._sanetime = True
             else:
                 raise Exception("Time offset compared to mongodb is too high {}".format(round(offset, 2)))
-        if blocking is False and timeout:
-            raise ValueError("Blocking can't be false with a timeout set")
         count = 0
         start = datetime.utcnow()
         while self._acquireretry(blocking, start, timeout, count):
