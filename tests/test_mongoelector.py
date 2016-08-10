@@ -14,14 +14,18 @@ from mongoelector import MongoElector
 
 
 class TestMongoelector(unittest.TestCase):
+    """Test Mongoelector Functionality"""
 
     def setUp(self):
+        """setup unittests"""
         pass
 
     def tearDown(self):
+        """teardown unittests"""
         pass
 
     def test_000_init(self):
+        """Smoke test"""
         MongoElector()
 
 

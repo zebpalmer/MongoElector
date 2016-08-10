@@ -20,6 +20,8 @@ from pymongo import MongoClient
 
 
 class TestMongoLocker(unittest.TestCase):
+    """Test MongoLocker Functionality"""
+
     def setUp(self):
         """Setup Unittests"""
         MongoClient().ml_unittest.mongolocker.drop()
@@ -74,7 +76,6 @@ class TestMongoLocker(unittest.TestCase):
         """Test method that determines if an acquire retry is appropriate"""
         _acquireretry = MongoLocker._acquireretry
         start = datetime.utcnow()
-        count = 0
         self.assertTrue(_acquireretry(True, start, 0, 0))  # initial entry
         with self.assertRaises(ValueError):
             _acquireretry(False, start, 30, 0)  # blocking false w/ timeout
