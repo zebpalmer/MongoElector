@@ -11,6 +11,7 @@ Tests for `mongoelector` module.
 import os
 import sys
 import unittest
+import time
 from datetime import datetime, timedelta
 sys.path.insert(0, os.path.abspath('..'))
 # noinspection PyPep8
@@ -110,9 +111,10 @@ class TestMongoLocker(unittest.TestCase):
     def test_007_touch(self):
         """ensure touch updates the expiration timestamp"""
         db = MongoClient()
-        ml = MongoLocker('testcycle', db, dbname='ml_unittest')
+        ml = MongoLocker('testtouch', db, dbname='ml_unittest')
         ml.acquire()
         start = ml.ts_expire
+        time.sleep(1)
         self.assertTrue(ml.touch())
         end = ml.ts_expire
         self.assertTrue(end > start)

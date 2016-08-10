@@ -138,7 +138,7 @@ class MongoLocker(object):
                 if force:
                     res = self._db.find_one_and_replace({'_id': self.key}, payload, new=True)
                 else:
-                    res = self._db.insert(payload)
+                    res = self._db.insert_one(payload)
                 return res
             except DuplicateKeyError:
                 existing = self._db.find_one({'_id': self.key})
@@ -199,7 +199,7 @@ class MongoLocker(object):
         else:
             query = {'_id': self.key,
                      'uuid': self.uuid}
-        self._db.remove(query)
+        self._db.delete_many(query)
 
     def touch(self):
         """
