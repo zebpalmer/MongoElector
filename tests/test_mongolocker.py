@@ -93,7 +93,7 @@ class TestMongoLocker(unittest.TestCase):
         self.assertFalse(_acquireretry(False, start, None, 1))  # non-blocking
 
     def test_006_acquire_force(self):
-        '''Test stealing the lock'''
+        """Test stealing the lock"""
         db = MongoClient()
         a = MongoLocker('testcycle', db, dbname='ml_unittest')
         b = MongoLocker('testcycle', db, dbname='ml_unittest')
@@ -108,7 +108,7 @@ class TestMongoLocker(unittest.TestCase):
         self.assertFalse(b.locked())
 
     def test_007_touch(self):
-        '''ensure touch updates the expiration timestamp'''
+        """ensure touch updates the expiration timestamp"""
         db = MongoClient()
         ml = MongoLocker('testcycle', db, dbname='ml_unittest')
         ml.acquire()
