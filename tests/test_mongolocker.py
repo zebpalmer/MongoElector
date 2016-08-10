@@ -21,16 +21,20 @@ from pymongo import MongoClient
 
 class TestMongoLocker(unittest.TestCase):
     def setUp(self):
+        """Setup Unittests"""
         MongoClient().ml_unittest.mongolocker.drop()
 
     def tearDown(self):
+        """Teardown unittests"""
         MongoClient().ml_unittest.mongolocker.drop()
 
     def test_001_init(self):
+        """Smoke test"""
         db = MongoClient()
         MongoLocker('testinit', db, dbname='ml_unittest')
 
     def test_002_cycle(self):
+        """run some lock cycles"""
         db = MongoClient()
         ml = MongoLocker('testcycle', db, dbname='ml_unittest')
         if ml.locked():  # cleanup any leftovers
@@ -46,11 +50,13 @@ class TestMongoLocker(unittest.TestCase):
         self.assertFalse(ml.locked())
 
     def test_003_paranoid(self):
+        """test time paranoia"""
         db = MongoClient()
         ml = MongoLocker('testinit', db, dbname='ml_unittest', timeparanoid=True)
         ml._verifytime()
 
     def test_004_force_release(self):
+        """Force releases"""
         db = MongoClient()
         ml1 = MongoLocker('testrelease', db, dbname='ml_unittest')
         ml2 = MongoLocker('testrelease', db, dbname='ml_unittest')
@@ -65,6 +71,7 @@ class TestMongoLocker(unittest.TestCase):
         self.assertFalse(ml1.owned())
 
     def test_005_acquire_retry(self):
+        """Test method that determines if an acquire retry is appropriate"""
         _acquireretry = MongoLocker._acquireretry
         start = datetime.utcnow()
         count = 0
