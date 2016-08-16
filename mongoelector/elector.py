@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 import threading
 from time import sleep
+import logging
 
-from mongoelector.locker import MongoLocker, LockExists
+from mongoelector.locker import MongoLocker, LockExists, AcquireTimeout
 
 
 class MongoElector(object):
@@ -72,7 +73,7 @@ class MongoElector(object):
         if not self.master_exists:
             try:
                 self.mlock.acquire(blocking=False)
-            except LockExists:
+            except (LockExists, AcquireTimeout):
                 pass
             else:
                 if self.mlock.owned():
@@ -99,5 +100,9 @@ class ElectorThread(threading.Thread):
     def run(self):
         """Main loop"""
         while self.elector.shutdown is False:
-            self.elector.poll()
-            sleep(2)
+            try:
+                self.elector.poll()
+            except Exception as e:
+                logging.warning('Elector Poll Error: {}'.format(e.message))
+            finally:
+                sleep(2)

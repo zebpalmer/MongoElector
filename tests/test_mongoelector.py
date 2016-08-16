@@ -41,7 +41,10 @@ class TestMongoelector(unittest.TestCase):
             c += 1
             sleep(1)
         self.assertTrue(m1.ismaster)
+        self.assertTrue(m1.running)
+        m1.poll()
         m1.stop()
+        m1.poll()
         c = 0
         while c < 30 and m1.ismaster is True:
             c += 1
