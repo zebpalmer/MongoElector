@@ -11,17 +11,9 @@ Mongo Elector
 =============
 
 .. code-block:: python
-   # Instansiate MongoElector object
+   # Instantiate MongoElector object
    self.elector = MongoElector('CleverName', dbconn, ttl=15, dbname='coolproj',
-    onmaster=self.onmaster, onmasterloss=self.onmasterloss, onloop=None)
-
-   # start mongoelector
-   self.elector.start()
-
-
-   # log if master
-   logging.debug('Master status: {}'.format(self.elector.ismaster))
-
+    onmaster=self.onmaster, onmasterloss=self.onmasterloss)
 
    # example callbacks
 
@@ -31,7 +23,12 @@ Mongo Elector
    def onmaster(self):
        self.sched.start() # start APScheduler
 
+   # start mongoelector
+   self.elector.start()
 
    # shutdown mongoelector, release master lock
    self.elector.stop()
+
+   # log if master
+   logging.debug('master status: {}'.format(self.elector.ismaster))
 
