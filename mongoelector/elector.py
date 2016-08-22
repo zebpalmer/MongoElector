@@ -95,6 +95,8 @@ class MongoElector(object):
         Main polling logic, will refresh lock if it's owned,
         or tries to obtain the lock if it's available.
         Runs onloop callback after lock maintenance logic
+
+        In general, this should only be called by the elector thread
         """
         with self._poll_lock:
             if self.mlock.owned():
