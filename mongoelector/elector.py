@@ -81,13 +81,8 @@ class MongoElector(object):
         return self.mlock.owned()
 
     @property
-    def members(self):
-        """return list of members"""
-        raise NotImplementedError
-
-    @property
     def master_exists(self):
-        """Returns a list of all instances that are availbe to become master"""
+        """Returns true if an instance (not necessarily this one) has master"""
         return self.mlock.locked()
 
     def poll(self):
