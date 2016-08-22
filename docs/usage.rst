@@ -15,31 +15,31 @@ A few random examples of interacting with MongoElector
 .. code-block:: python
 
    # Instantiate MongoElector object
-   self.elector = MongoElector('CleverName', dbconn, ttl=15, dbname='coolproj',
-                               onmaster=self.onmaster, onmasterloss=self.onmasterloss)
+   elector = MongoElector('CleverName', dbconn, ttl=15, dbname='coolproj',
+                          onmaster=self.onmaster, onmasterloss=self.onmasterloss)
 
    # example callbacks
 
    def onmasterloss(self):
-       self.sched.shutdown() # shutdown APScheduler
+       sched.shutdown() # shutdown APScheduler
 
    def onmaster(self):
-       self.sched.start() # start APScheduler
+       sched.start() # start APScheduler
 
    # start mongoelector
-   self.elector.start()
+   elector.start()
 
    # shutdown mongoelector, release master lock
-   self.elector.stop()
+   elector.stop()
 
    # log if master
-   logging.debug('master status: {}'.format(self.elector.ismaster))
+   logging.debug('master status: {}'.format(elector.ismaster))
 
    # release the master lock, allowing another instance to take it
-   self.elector.release()
+   elector.release()
 
    # log if master exists (on any node)
-   logging.debug('Cluster master is running: {}'.format(self.elector.master_exists))
+   logging.debug('Cluster master is running: {}'.format(elector.master_exists))
 
 
 MongoLocker
