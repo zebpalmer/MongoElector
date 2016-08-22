@@ -25,22 +25,36 @@ MongoElector
 
 
 
-.. NOTE::
-   As of 0.2.0, the API for the distributed lock functionality is probably finalized.
-   As for stability, I'm using this in several production projects and it's working well.
-   I will be starting work on the elector portion of this project very soon, on separate
-   branches, that feature will be pre-alpha for several releases.
 
+About
+======
 
-Distributed master election and locking in mongodb
+The MongoElector project provides two pieces of distributed coordination;
+Distributed locks via 'MongoLocker' and master elections via 'MongoElector'.
+MongoElector makes heavy use of MongoLocker, but the locking functionality
+within MongoLocker can be used separately.
+
 
 * Free software: GPLv3
 * Documentation: https://mongoelector.readthedocs.io.
 
+.. NOTE::
+   As of 0.3.0 release, the distributed master election functionality is working.
+   Additional features and functionality as well as bug fixes and minor API changes
+   will be ongoing over the next couple of minor releases.
+
+
+
 Features
 --------
 
+* Simple API to allow distributed master election
 * Distributed locking via MongoDB
 * Ensure/Verify a specific instance holds the lock
 * TTL
 
+
+Todo
+-----
+
+* Cluster Health and Management within MongoElector
