@@ -18,15 +18,15 @@ class MongoElector(object):
         Create a MongoElector instance
 
         :param key: Name of the distributed lock that is used for master election.
-        should be unique to this type of daemon i.e. any instance for which you want
-        to run exactly one master should all share this same name.
+         should be unique to this type of daemon i.e. any instance for which you want
+         to run exactly one master should all share this same name.
         :type key: str
         :param dbconn: Connection to a MongoDB server or cluster
         :type dbconn: PyMongo DB Connection
         :param dbname: Name of the mongodb database to use (will be created if it doesn't exist)
         :type dbname: str
         :param ttl: Time-to-live for the distributed lock. If the master node fails silently, this
-        timeout must be hit before another node will take over.
+         timeout must be hit before another node will take over.
         :type ttl: int
         :param onmaster: Function that will be run every time this instance is elected as the new master
         :type onmaster: Function or Method
@@ -55,7 +55,7 @@ class MongoElector(object):
         If blocking is set to True, this will never return until stop() is
 
         :param blocking: If False, returns as soon as the elector thread is started.
-        If True, will only return after stop() is called i.e. by another thread.
+         If True, will only return after stop() is called i.e. by another thread.
         :type blocking: bool
         """
         self.elector_thread = ElectorThread(self)  # give elector thread reference to mongolocker
@@ -102,8 +102,10 @@ class MongoElector(object):
                 self.mlock.touch()
             else:
                 if self._wasmaster:
+                    self._wasmaster = False
                     if self.callback_onmasterloss:
                         self.callback_onmasterloss()
+
             if not self.master_exists and not self._shutdown:
                 try:
                     self.mlock.acquire(blocking=False)
