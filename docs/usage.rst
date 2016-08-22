@@ -20,10 +20,12 @@ A few random examples of interacting with MongoElector
 
    # example callbacks
 
-   def onmasterloss(self):
+   def onmasterloss():
+       logging.info("Master Lost, shutting down task scheduler)
        sched.shutdown() # shutdown APScheduler
 
-   def onmaster(self):
+   def onmaster():
+       logging.info("Elected master, starting task scheduler)
        sched.start() # start APScheduler
 
    # start mongoelector
