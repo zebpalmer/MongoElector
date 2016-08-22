@@ -127,8 +127,6 @@ class MongoElector(object):
                 self.callback_onmasterloss()
 
 
-
-
 class ElectorThread(threading.Thread):
     """Calls the election polling logic"""
 
@@ -139,10 +137,11 @@ class ElectorThread(threading.Thread):
 
     def run(self):
         """starts the elector polling logic, should not be called directly"""
+        # noinspection PyProtectedMember
         while self.elector._shutdown is False:
             try:
                 self.elector.poll()
             except Exception as e:
-                logging.warning('Elector Poll Error: {}'.format(e.message))
+                logging.warning('Elector Poll Error: {}'.format(e))
             finally:
                 sleep(2)
