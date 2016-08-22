@@ -14,8 +14,29 @@ class MongoElector(object):
 
     def __init__(self, key, dbconn, dbname='mongoelector',
                  ttl=15, onmaster=None, onmasterloss=None, onloop=None):
-        """Initial setup"""
-        self.shutdown = False
+        """
+        Create a MongoElector instance
+
+        :param key: Name of the distributed lock that is used for master election.
+        should be unique to this type of daemon i.e. any instance for which you want
+        to run exactly one master should all share this same name.
+        :type key: str
+        :param dbconn: Connection to a MongoDB server or cluster
+        :type dbconn: PyMongo DB Connection
+        :param dbname: Name of the mongodb database to use (will be created if it doesn't exist)
+        :type dbname: str
+        :param ttl: Time-to-live for the distributed lock. If the master node fails silently, this
+        timeout must be hit before another node will take over.
+        :type ttl: int
+        :param onmaster: Function that will be run every time this instance is elected as the new master
+        :type onmaster: Function or Method
+        :param onmasterloss: Function that will be run every time when this instance loses it's master status
+        :type onmasterloss: Function or Method
+        :param onloop: Function that will be run on every loop
+        :type onloop: Function or Method
+        """
+        self._poll_lock = threading.Lock()
+        self._shutdown = False
         self._wasmaster = False
         self.elector_thread = None
         self.key = key
@@ -29,7 +50,14 @@ class MongoElector(object):
                                  dbcollection='electorlocks', ttl=self.ttl, timeparanoid=True)
 
     def start(self, blocking=False):
-        """Starts mongo elector polling"""
+        """
+        Starts mongo elector polling on a background thread then returns.
+        If blocking is set to True, this will never return until stop() is
+
+        :param blocking: If False, returns as soon as the elector thread is started.
+        If True, will only return after stop() is called i.e. by another thread.
+        :type blocking: bool
+        """
         self.elector_thread = ElectorThread(self)  # give elector thread reference to mongolocker
         self.elector_thread.start()
         if blocking:
@@ -37,8 +65,10 @@ class MongoElector(object):
 
     def stop(self):
         """Cleanly stop the elector. Surrender master if owned"""
-        self.shutdown = True
-        self.elector_thread.join()
+        with self._poll_lock:
+            self._shutdown = True
+            self.elector_thread.join()
+        self.release()
 
     @property
     def running(self):
@@ -61,45 +91,55 @@ class MongoElector(object):
         return self.mlock.locked()
 
     def poll(self):
-        if self.mlock.owned():
-            self._wasmaster = True
-            self.mlock.touch()
+        """
+        Main polling logic, will refresh lock if it's owned,
+        or tries to obtain the lock if it's available.
+        Runs onloop callback after lock maintenance logic
+        """
+        with self._poll_lock:
+            if self.mlock.owned():
+                self._wasmaster = True
+                self.mlock.touch()
+            else:
+                if self._wasmaster:
+                    if self.callback_onmasterloss:
+                        self.callback_onmasterloss()
+            if not self.master_exists and not self._shutdown:
+                try:
+                    self.mlock.acquire(blocking=False)
+                except (LockExists, AcquireTimeout):
+                    pass
+                else:
+                    if self.mlock.owned():
+                        self._wasmaster = True
+                        if self.callback_onmaster:
+                            self.callback_onmaster()
             if self.callback_onloop:
                 self.callback_onloop()
-        else:
-            if self._wasmaster:
-                if self.callback_onmasterloss:
-                    self.callback_onmasterloss()
-        if not self.master_exists:
-            try:
-                self.mlock.acquire(blocking=False)
-            except (LockExists, AcquireTimeout):
-                pass
-            else:
-                if self.mlock.owned():
-                    self._wasmaster = True
-                    if self.callback_onmaster:
-                        self.callback_onmaster()
 
     def release(self):
         """
-        releases master, if local instance owns it,
-        allowing other instances to become master
+        Releases master lock if owned and calls onmasterloss if provided.
         """
-        self.mlock.release()
-        sleep(2)  # let other instances fight it out
+        with self._poll_lock:
+            self.mlock.release()
+            if self._wasmaster and self.callback_onmaster:
+                self.callback_onmasterloss()
+
+
 
 
 class ElectorThread(threading.Thread):
     """Calls the election polling logic"""
 
     def __init__(self, elector):
+        """Custom Thread object for the Elector"""
         super(ElectorThread, self).__init__()
         self.elector = elector
 
     def run(self):
-        """Main loop"""
-        while self.elector.shutdown is False:
+        """starts the elector polling logic, should not be called directly"""
+        while self.elector._shutdown is False:
             try:
                 self.elector.poll()
             except Exception as e:
