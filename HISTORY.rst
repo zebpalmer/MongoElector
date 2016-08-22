@@ -2,6 +2,11 @@
 History
 =======
 
+0.3.0 (2016-08-22)
+------------------
+
+* Initial working release of master election logic.
+
 0.2.1 (2016-08-10)
 ------------------
 
