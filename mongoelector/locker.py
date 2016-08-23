@@ -3,7 +3,7 @@ from socket import getfqdn
 from time import sleep
 from datetime import datetime, timedelta
 from pymongo import ReturnDocument
-from pymongo.errors import DuplicateKeyError
+from pymongo.errors import DuplicateKeyError, OperationFailure
 
 
 class LockExists(Exception):
@@ -66,7 +66,11 @@ class MongoLocker(object):
                 raise ValueError("ttl must be int() seconds")
 
     def _setup_ttl(self):
-        self._db.create_index('ts_expire', expireAfterSeconds=0)
+        try:
+            self._db.create_index('ts_expire', expireAfterSeconds=0)
+        except OperationFailure:
+            self._db.drop_indexes()
+            self._db.create_index('ts_expire', expireAfterSeconds=0)
         self._ttl_indexed = True
 
     @staticmethod
