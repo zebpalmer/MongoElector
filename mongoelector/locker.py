@@ -174,7 +174,7 @@ class MongoLocker(object):
                 if not blocking:
                     raise LockExists('{} owned by {} pid {}, expires in {}s'.format(self.key,
                                                                                     existing['host'],
-                                                                                    existing.get('pid',''),
+                                                                                    existing.get('pid','?'),
                                                                                     countdown))
                 else:
                     sleep(step)
