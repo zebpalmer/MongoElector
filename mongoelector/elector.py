@@ -142,7 +142,7 @@ class MongoElector(object):
             return {'hostname': master['hostname'],
                     'process_id': master['pid'],
                     'uuid': master['uuid']}
-        data = self._status_db.find({'key': self.key}, {'_id': 0}, {}).sort('timestamp', -1)
+        data = self._status_db.find({'key': self.key}, {'_id': 0}).sort('timestamp', -1)
         return {'member_detail': data,
                 'master': get_master(data),
                 'timestamp': datetime.utcnow()}
