@@ -1,4 +1,5 @@
 import uuid
+from os import getpid
 from socket import getfqdn
 from time import sleep
 from datetime import datetime, timedelta
@@ -44,6 +45,7 @@ class MongoLocker(object):
         """
         self.uuid = str(uuid.uuid4())
         self.host = getfqdn()
+        self.pid = getpid()
         self.ts_expire = None
         self.ts_created = None
         self.timeparanoid = timeparanoid
@@ -137,6 +139,7 @@ class MongoLocker(object):
                            'locked': True,
                            'host': self.host,
                            'uuid': self.uuid,
+                           'pid': self.pid,
                            'ts_created': self.ts_created,
                            'ts_expire': self.ts_expire}
                 if force:
