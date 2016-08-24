@@ -68,17 +68,16 @@ class MongoLocker(object):
 
     @property
     def status(self):
-        timestamp = datetime.utcnow()
-        current = self.get_current()
         lock_created = None
         lock_expires = None
+        timestamp = datetime.utcnow()
+        current = self.get_current()
         mine = False
         if current:
             mine = bool(current.get('uuid', False) == self.uuid)
             if mine: # Only include these details if lock is owned (prevent races)
                 lock_created = current['ts_created']
                 lock_expires = current['ts_expire']
-
         return {'uuid': self.uuid,
                 'key': self.key,
                 'ttl': self._ttl,
