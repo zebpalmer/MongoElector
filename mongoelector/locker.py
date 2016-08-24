@@ -47,7 +47,6 @@ class MongoLocker(object):
         self.host = getfqdn()
         self.pid = getpid()
         self.ts_expire = None
-        self.ts_created = None
         self.timeparanoid = timeparanoid
         self.dbname = dbname
         self.dbcollection = dbcollection
@@ -66,6 +65,29 @@ class MongoLocker(object):
                 self._ttl = ttl
             else:
                 raise ValueError("ttl must be int() seconds")
+
+    @property
+    def status(self):
+        timestamp = datetime.utcnow()
+        current = self.get_current()
+        lock_created = None
+        lock_expires = None
+        mine = False
+        if current:
+            mine = bool(current.get('uuid', False) == self.uuid)
+            if mine: # Only include these details if lock is owned (prevent races)
+                lock_created = current['ts_created']
+                lock_expires = current['ts_expire']
+
+        return {'uuid': self.uuid,
+                'key': self.key,
+                'ttl': self._ttl,
+                'timestamp': timestamp,
+                'host': self.host,
+                'pid': self.pid,
+                'lock_owned': mine,
+                'lock_created': lock_created,
+                'lock_expires': lock_expires}
 
     def _setup_ttl(self):
         try:
@@ -133,14 +155,14 @@ class MongoLocker(object):
         while self._acquireretry(blocking, start, timeout, count):
             count += 1
             try:
-                self.ts_created = datetime.utcnow()
-                self.ts_expire = self.ts_created + timedelta(seconds=int(self._ttl))
+                created = datetime.utcnow()
+                self.ts_expire = created + timedelta(seconds=int(self._ttl))
                 payload = {'_id': self.key,
                            'locked': True,
                            'host': self.host,
                            'uuid': self.uuid,
                            'pid': self.pid,
-                           'ts_created': self.ts_created,
+                           'ts_created': created,
                            'ts_expire': self.ts_expire}
                 if force:
                     res = self._db.find_one_and_replace({'_id': self.key}, payload, new=True)
@@ -151,9 +173,10 @@ class MongoLocker(object):
                 existing = self._db.find_one({'_id': self.key})
                 countdown = (datetime.utcnow() - existing['ts_expire']).total_seconds()
                 if not blocking:
-                    raise LockExists('Lock {} exists on host {}, expires in {} seconds'.format(self.key,
-                                                                                               existing['host'],
-                                                                                               countdown))
+                    raise LockExists('{} owned by {} pid {}, expires in {}s'.format(self.key,
+                                                                                    existing['host'],
+                                                                                    existing.get('pid',''),
+                                                                                    countdown))
                 else:
                     sleep(step)
         raise AcquireTimeout("Timeout reached, lock not acquired")
@@ -189,6 +212,15 @@ class MongoLocker(object):
                                        'uuid': self.uuid,
                                        'locked': True,
                                        '$where': 'this.ts_expire > new Date()'}))
+
+    def get_current(self):
+        """
+        Returns the current (valid) lock object from the database,
+        regardless of which instance it is owned by.
+        """
+        return self._db.find_one({'_id': self.key,
+                                  'locked': True,
+                                  '$where': 'this.ts_expire > new Date()'})
 
     def release(self, force=False):
         """
