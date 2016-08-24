@@ -132,7 +132,23 @@ class MongoElector(object):
         self._status_db.update({'_id': status['_id']}, status, upsert=True)
 
     @property
+    def cluster_detail(self):
+        def get_master(data):
+            allmasters = [x for x in data if x['ismaster']] # grab most recent master (prevents race)
+            if allmasters:
+                master = allmasters[0]
+            else:
+                master = None
+            return {'hostname': master['hostname'],
+                    'process_id': master['pid'],
+                    'uuid': master['uuid']}
+        data = self._status_db.find({'key': self.key}, {'_id': 0}, {}).sort('timestamp', -1)
+        return {'member_detail': data,
+                'master': get_master(data)}
+
+    @property
     def node_status(self):
+        """Status info for current object"""
         status = self.mlock.status
         status['_id'] = status['uuid']
         status['ismaster'] = self.ismaster
