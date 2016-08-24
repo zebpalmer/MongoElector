@@ -139,7 +139,7 @@ class MongoElector(object):
                 master = allmasters[0]
             else:
                 master = None
-            return {'hostname': master['hostname'],
+            return {'host': master['host'],
                     'process_id': master['pid'],
                     'uuid': master['uuid']}
         data = self._status_db.find({'key': self.key}, {'_id': 0}).sort('timestamp', -1)
