@@ -48,6 +48,7 @@ class MongoElector(object):
         self.dbname = dbname
         self._status_db = getattr(getattr(dbconn, dbname), 'elector.status')
         self._status_db.create_index('timestamp', expireAfterSeconds=int(ttl))
+        self._status_db.create_index('key')
         self.ttl = ttl
         self.callback_onmaster = onmaster
         self.callback_onmasterloss = onmasterloss
