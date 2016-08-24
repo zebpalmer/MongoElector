@@ -2,6 +2,7 @@
 import threading
 from time import sleep
 import logging
+from datetime import datetime
 
 from mongoelector.locker import MongoLocker, LockExists, AcquireTimeout
 
@@ -13,7 +14,8 @@ class MongoElector(object):
     """
 
     def __init__(self, key, dbconn, dbname='mongoelector',
-                 ttl=15, onmaster=None, onmasterloss=None, onloop=None):
+                 ttl=15, onmaster=None, onmasterloss=None,
+                 onloop=None, report_status=True):
         """
         Create a MongoElector instance
 
@@ -36,18 +38,23 @@ class MongoElector(object):
         :type onloop: Function or Method
         """
         self._poll_lock = threading.Lock()
+        self._ts_poll = None
         self._shutdown = False
         self._wasmaster = False
+        self._report_status = report_status
         self.elector_thread = None
         self.key = key
         self.dbconn = dbconn
         self.dbname = dbname
+        self._status_db = getattr(getattr(dbconn, dbname), 'elector.status')
+        self._status_db.create_index('timestamp', expireAfterSeconds=int(ttl))
         self.ttl = ttl
         self.callback_onmaster = onmaster
         self.callback_onmasterloss = onmasterloss
         self.callback_onloop = onloop
         self.mlock = MongoLocker(self.key, self.dbconn, dbname=self.dbname,
-                                 dbcollection='electorlocks', ttl=self.ttl, timeparanoid=True)
+                                 dbcollection='elector.locks', ttl=self.ttl,
+                                 timeparanoid=True)
 
     def start(self, blocking=False):
         """
@@ -94,6 +101,7 @@ class MongoElector(object):
         In general, this should only be called by the elector thread
         """
         with self._poll_lock:
+            self._ts_poll = datetime.utcnow()
             if self.mlock.owned():
                 self._wasmaster = True
                 self.mlock.touch()
@@ -113,8 +121,23 @@ class MongoElector(object):
                         self._wasmaster = True
                         if self.callback_onmaster:
                             self.callback_onmaster()
+            if self._report_status:
+                self.report_status()
             if self.callback_onloop:
                 self.callback_onloop()
+
+    def report_status(self):
+        status = self.node_status
+        self._status_db.update({'_id': status['_id']}, status, upsert=True)
+
+    @property
+    def node_status(self):
+        status = self.mlock.status
+        status['_id'] = status['uuid']
+        status['ismaster'] = self.ismaster
+        status['elector_running'] = self.running
+        status['last_poll'] = self._ts_poll
+        return status
 
     def release(self):
         """
