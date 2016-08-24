@@ -144,7 +144,8 @@ class MongoElector(object):
                     'uuid': master['uuid']}
         data = self._status_db.find({'key': self.key}, {'_id': 0}, {}).sort('timestamp', -1)
         return {'member_detail': data,
-                'master': get_master(data)}
+                'master': get_master(data),
+                'timestamp': datetime.utcnow()}
 
     @property
     def node_status(self):
