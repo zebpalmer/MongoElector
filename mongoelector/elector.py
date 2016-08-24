@@ -133,18 +133,9 @@ class MongoElector(object):
 
     @property
     def cluster_detail(self):
-        def get_master(data):
-            allmasters = [x for x in data if x['ismaster']] # grab most recent master (prevents race)
-            if allmasters:
-                master = allmasters[0]
-            else:
-                master = None
-            return {'host': master['host'],
-                    'process_id': master['pid'],
-                    'uuid': master['uuid']}
-        data = self._status_db.find({'key': self.key}, {'_id': 0}).sort('timestamp', -1)
+        data = [x for x in self._status_db.find({'key': self.key}, {'_id': 0}).sort('timestamp', -1)]
         return {'member_detail': data,
-                'master': get_master(data),
+                'master': parse_master(data),
                 'timestamp': datetime.utcnow()}
 
     @property
