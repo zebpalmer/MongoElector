@@ -185,3 +185,17 @@ class ElectorThread(threading.Thread):
                 logging.warning('Elector Poll Error: {}'.format(e))
             finally:
                 sleep(2)
+
+
+def parse_master(data):
+    allmasters = [x for x in data if x['ismaster']]  # grab most recent master (prevents race)
+    if allmasters:
+        master = allmasters[0]
+    else:
+        master = None
+    if master:
+        return {'host': master['host'],
+                'process_id': master['pid'],
+                'uuid': master['uuid']}
+    else:
+        return None
