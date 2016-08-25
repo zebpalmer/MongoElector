@@ -43,7 +43,7 @@ class TestMongoelector(unittest.TestCase):
         self.assertTrue(m1.ismaster)
         self.assertTrue(m1.running)
         m1.poll()
-        m1.cluster_detail
+        self.assertIsInstance(m1.cluster_detail, dict)
         m1.stop()
         m1.poll()
         c = 0
