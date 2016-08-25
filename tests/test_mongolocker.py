@@ -119,6 +119,22 @@ class TestMongoLocker(unittest.TestCase):
         end = ml.ts_expire
         self.assertTrue(end > start)
 
+    def test_008_status(self):
+        """Test lock status property"""
+        db = MongoClient()
+        ml = MongoLocker('testtouch', db, dbname='ml_unittest')
+        a = ml.status
+        self.assertIsInstance(a['pid'], int)
+        # Test Unlocked
+        self.assertEqual(a['lock_created'], None)
+        self.assertEqual(a['lock_expires'], None)
+        self.assertEqual(a['lock_owned'], False)
+        # Test Locked
+        ml.acquire()
+        b = ml.status
+        self.assertEqual(b['lock_owned'], True)
+        self.assertIsInstance(b['lock_expires'], datetime)
+        self.assertIsInstance(b['lock_created'], datetime)
 
 if __name__ == '__main__':
     sys.exit(unittest.main())
