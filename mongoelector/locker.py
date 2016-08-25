@@ -75,7 +75,7 @@ class MongoLocker(object):
         mine = False
         if current:
             mine = bool(current.get('uuid', False) == self.uuid)
-            if mine: # Only include these details if lock is owned (prevent races)
+            if mine:  # Only include these details if lock is owned (prevent races)
                 lock_created = current['ts_created']
                 lock_expires = current['ts_expire']
         return {'uuid': self.uuid,
@@ -174,7 +174,7 @@ class MongoLocker(object):
                 if not blocking:
                     raise LockExists('{} owned by {} pid {}, expires in {}s'.format(self.key,
                                                                                     existing['host'],
-                                                                                    existing.get('pid','?'),
+                                                                                    existing.get('pid', '?'),
                                                                                     countdown))
                 else:
                     sleep(step)
