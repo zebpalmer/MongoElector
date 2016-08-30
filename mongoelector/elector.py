@@ -75,7 +75,8 @@ class MongoElector(object):
         """Cleanly stop the elector. Surrender master if owned"""
         with self._poll_lock:
             self._shutdown = True
-            self.elector_thread.join()
+            if self.elector_thread:
+                self.elector_thread.join()
         self.release()
 
     @property
