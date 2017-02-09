@@ -159,6 +159,15 @@ class MongoElector(object):
                 self.callback_onmasterloss()
 
 
+    @property
+    def pollwait(self):
+        """An appropriate sleep time to wait before next poll"""
+        if self._wasmaster:
+            return self.ttl / 2.0
+        else:
+            return self.ttl
+
+
 class ElectorThread(threading.Thread):
     """Calls the election polling logic"""
 
@@ -176,7 +185,7 @@ class ElectorThread(threading.Thread):
             except Exception as e:
                 logging.warning('Elector Poll Error: {}'.format(e))
             finally:
-                sleep(2)
+                sleep(self.elector.pollwait)
 
 
 def parse_master(data):
