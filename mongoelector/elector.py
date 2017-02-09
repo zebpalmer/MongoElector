@@ -3,6 +3,8 @@ import threading
 from time import sleep
 import logging
 from datetime import datetime
+from pymongo.errors import OperationFailure
+
 
 from mongoelector.locker import MongoLocker, LockExists, AcquireTimeout
 
@@ -47,7 +49,11 @@ class MongoElector(object):
         self.dbconn = dbconn
         self.dbname = dbname
         self._status_db = getattr(getattr(dbconn, dbname), 'elector.status')
-        self._status_db.create_index('timestamp', expireAfterSeconds=int(ttl))
+        try:
+            self._status_db.create_index('timestamp', expireAfterSeconds=int(ttl))
+        except OperationFailure:  # Handle TTL Changes
+            self._status_db.drop_indexes()
+            self._status_db.create_index('timestamp', expireAfterSeconds=int(ttl))
         self._status_db.create_index('key')
         self.ttl = ttl
         self.callback_onmaster = onmaster
