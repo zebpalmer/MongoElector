@@ -60,9 +60,9 @@ class MongoLocker(object):
         else:
             raise ValueError("must provide key name and pyongo connection")
         if ttl:
-            self._setup_ttl()
             if isinstance(ttl, int):
                 self._ttl = ttl
+                self._setup_ttl()
             else:
                 raise ValueError("ttl must be int() seconds")
 
@@ -90,10 +90,10 @@ class MongoLocker(object):
 
     def _setup_ttl(self):
         try:
-            self._db.create_index('ts_expire', expireAfterSeconds=0)
+            self._db.create_index('ts_expire', expireAfterSeconds=self._ttl)
         except OperationFailure:
             self._db.drop_indexes()
-            self._db.create_index('ts_expire', expireAfterSeconds=0)
+            self._db.create_index('ts_expire', expireAfterSeconds=self._ttl)
         self._ttl_indexed = True
 
     @staticmethod
@@ -116,14 +116,18 @@ class MongoLocker(object):
 
     def _verifytime(self):
         """verify database server's time matches local machine time"""
-        timeok = True
-        serverlocal = getattr(self._dbconn, self.dbname).command('serverStatus')['localTime']
-        pytime = datetime.utcnow()
-        delta = pytime - serverlocal
-        offset = abs(delta.total_seconds())
-        if offset > self._maxoffset:
-            timeok = False
-        return timeok, offset
+        if self._sanetime and self._sanetime > datetime.utcnow() - timedelta(minutes=10):
+            return True
+        else:
+            mongotime = getattr(self._dbconn, self.dbname).command('serverStatus')['localTime']
+            pytime = datetime.utcnow()
+            delta = pytime - mongotime
+            offset = abs(delta.total_seconds())
+            if offset > self._maxoffset:
+                raise Exception("Time offset compared to mongodb is too high {}".format(round(offset, 2)))
+            else:
+                self._sanetime = datetime.utcnow()
+            return True
 
     def acquire(self, blocking=True, timeout=None, step=0.25, force=False):
         """
@@ -143,12 +147,8 @@ class MongoLocker(object):
 
 
         """
-        if self._sanetime is None and self.timeparanoid is True:
-            timeok, offset = self._verifytime()
-            if timeok:
-                self._sanetime = True
-            else:
-                raise Exception("Time offset compared to mongodb is too high {}".format(round(offset, 2)))
+        if self.timeparanoid is True:
+            self._verifytime()
         count = 0
         start = datetime.utcnow()
         while self._acquireretry(blocking, start, timeout, count):
@@ -193,7 +193,7 @@ class MongoLocker(object):
         :rtype: bool
         """
         locked = False
-        res = self._db.find_one({'_id': self.key, "$where": 'this.ts_expire > new Date()'})
+        res = self._db.find_one({'_id': self.key, 'ts_expire': {'$gt': datetime.utcnow()}})
         if res:
             locked = res['locked']
         return locked
@@ -210,7 +210,7 @@ class MongoLocker(object):
         return bool(self._db.find_one({'_id': self.key,
                                        'uuid': self.uuid,
                                        'locked': True,
-                                       '$where': 'this.ts_expire > new Date()'}))
+                                       'ts_expire': {'$gt': datetime.utcnow()}}))
 
     def get_current(self):
         """
@@ -219,7 +219,7 @@ class MongoLocker(object):
         """
         return self._db.find_one({'_id': self.key,
                                   'locked': True,
-                                  '$where': 'this.ts_expire > new Date()'})
+                                  'ts_expire': {'$gt': datetime.utcnow()}})
 
     def release(self, force=False):
         """
@@ -247,7 +247,7 @@ class MongoLocker(object):
         result = self._db.find_one_and_update({'_id': self.key,
                                                'uuid': self.uuid,
                                                'locked': True,
-                                               '$where': 'this.ts_expire > new Date()'},
+                                               'ts_expire': {'$gt': datetime.utcnow()}},
                                               {'$set': {'ts_expire': ts_expire}},
                                               return_document=ReturnDocument.AFTER)
         if result:
