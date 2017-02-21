@@ -15,7 +15,7 @@ class MongoElector(object):
     election coolness
     """
 
-    def __init__(self, key, dbconn, dbname='mongoelector',
+    def __init__(self, key, db,
                  ttl=15, onmaster=None, onmasterloss=None,
                  onloop=None, report_status=True):
         """
@@ -25,10 +25,7 @@ class MongoElector(object):
          should be unique to this type of daemon i.e. any instance for which you want
          to run exactly one master should all share this same name.
         :type key: str
-        :param dbconn: Connection to a MongoDB server or cluster
-        :type dbconn: PyMongo DB Connection
-        :param dbname: Name of the mongodb database to use (will be created if it doesn't exist)
-        :type dbname: str
+        :param db: Connection to a MongoDB database
         :param ttl: Time-to-live for the distributed lock. If the master node fails silently, this
          timeout must be hit before another node will take over.
         :type ttl: int
@@ -46,20 +43,19 @@ class MongoElector(object):
         self._report_status = report_status
         self.elector_thread = None
         self.key = key
-        self.dbconn = dbconn
-        self.dbname = dbname
-        self._status_db = getattr(getattr(dbconn, dbname), 'elector.status')
+        self.db = db
+        self._status_collection = getattr(self.db, 'elector.status')
         try:
-            self._status_db.create_index('timestamp', expireAfterSeconds=int(ttl))
+            self._status_collection.create_index('timestamp', expireAfterSeconds=int(ttl))
         except OperationFailure:  # Handle TTL Changes
-            self._status_db.drop_indexes()
-            self._status_db.create_index('timestamp', expireAfterSeconds=int(ttl))
-        self._status_db.create_index('key')
+            self._status_collection.drop_indexes()
+            self._status_collection.create_index('timestamp', expireAfterSeconds=int(ttl))
+        self._status_collection.create_index('key')
         self.ttl = ttl
         self.callback_onmaster = onmaster
         self.callback_onmasterloss = onmasterloss
         self.callback_onloop = onloop
-        self.mlock = MongoLocker(self.key, self.dbconn, dbname=self.dbname,
+        self.mlock = MongoLocker(self.key, self.db,
                                  dbcollection='elector.locks', ttl=self.ttl,
                                  timeparanoid=True)
 
@@ -136,11 +132,11 @@ class MongoElector(object):
 
     def report_status(self):
         status = self.node_status
-        self._status_db.update({'_id': status['_id']}, status, upsert=True)
+        self._status_collection.update({'_id': status['_id']}, status, upsert=True)
 
     @property
     def cluster_detail(self):
-        data = [x for x in self._status_db.find({'key': self.key}, {'_id': 0}).sort('timestamp', -1)]
+        data = [x for x in self._status_collection.find({'key': self.key}, {'_id': 0}).sort('timestamp', -1)]
         return {'member_detail': data,
                 'master': parse_master(data),
                 'timestamp': datetime.utcnow()}

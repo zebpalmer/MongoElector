@@ -33,9 +33,9 @@ class TestMongoLocker(unittest.TestCase):
 
     def test_001_init(self):
         """Smoke test"""
-        db = MongoClient()
-        MongoLocker('testinit', db, dbname='ml_unittest')
-        with self.assertRaises(ValueError):
+        db = getattr(MongoClient(), "ml_unittest")
+        MongoLocker('testinit', db)
+        with self.assertRaises(TypeError):
             MongoLocker(None, None)
         with self.assertRaises(ValueError):
             MongoLocker('testinit', db, ttl='not-an-int')
@@ -44,8 +44,8 @@ class TestMongoLocker(unittest.TestCase):
 
     def test_002_cycle(self):
         """run some lock cycles"""
-        db = MongoClient()
-        ml = MongoLocker('testcycle', db, dbname='ml_unittest')
+        db = getattr(MongoClient(), "ml_unittest")
+        ml = MongoLocker('testcycle', db)
         if ml.locked():  # cleanup any leftovers
             ml.release(force=False)
         ml.acquire()
@@ -60,15 +60,15 @@ class TestMongoLocker(unittest.TestCase):
 
     def test_003_paranoid(self):
         """test time paranoia"""
-        db = MongoClient()
-        ml = MongoLocker('testinit', db, dbname='ml_unittest', timeparanoid=True)
+        db = getattr(MongoClient(), "ml_unittest")
+        ml = MongoLocker('testinit', db, timeparanoid=True)
         ml._verifytime()
 
     def test_004_force_release(self):
         """Force releases"""
-        db = MongoClient()
-        ml1 = MongoLocker('testrelease', db, dbname='ml_unittest')
-        ml2 = MongoLocker('testrelease', db, dbname='ml_unittest')
+        db = getattr(MongoClient(), "ml_unittest")
+        ml1 = MongoLocker('testrelease', db)
+        ml2 = MongoLocker('testrelease', db)
         ml1.acquire()
         with self.assertRaises(LockExists):
             ml2.acquire(blocking=False)
@@ -95,9 +95,9 @@ class TestMongoLocker(unittest.TestCase):
 
     def test_006_acquire_force(self):
         """Test stealing the lock"""
-        db = MongoClient()
-        a = MongoLocker('testcycle', db, dbname='ml_unittest')
-        b = MongoLocker('testcycle', db, dbname='ml_unittest')
+        db = getattr(MongoClient(), "testcycle")
+        a = MongoLocker('testcycle', db)
+        b = MongoLocker('testcycle', db)
         a.acquire()
         self.assertTrue(a.owned())
         self.assertTrue(b.acquire(force=True))
@@ -110,8 +110,8 @@ class TestMongoLocker(unittest.TestCase):
 
     def test_007_touch(self):
         """ensure touch updates the expiration timestamp"""
-        db = MongoClient()
-        ml = MongoLocker('testtouch', db, dbname='ml_unittest')
+        db = getattr(MongoClient(), "ml_unittest")
+        ml = MongoLocker('testtouch', db)
         ml.acquire()
         start = ml.ts_expire
         time.sleep(1)
@@ -121,8 +121,8 @@ class TestMongoLocker(unittest.TestCase):
 
     def test_008_status(self):
         """Test lock status property"""
-        db = MongoClient()
-        ml = MongoLocker('testtouch', db, dbname='ml_unittest')
+        db = getattr(MongoClient(), "ml_unittest")
+        ml = MongoLocker('teststatus', db)
         a = ml.status
         self.assertIsInstance(a['pid'], int)
         # Test Unlocked

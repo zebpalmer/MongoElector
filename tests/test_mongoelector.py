@@ -20,21 +20,27 @@ class TestMongoelector(unittest.TestCase):
 
     def setUp(self):
         """setup unittests"""
-        MongoClient().ml_unittest.electorlocks.drop()
+        db = getattr(MongoClient(), "ml_unittest")
+        db.ml_unittest.electorlocks.drop()
 
 
     def tearDown(self):
         """teardown unittests"""
-        MongoClient().ml_unittest.electorlocks.drop()
+        db = getattr(MongoClient(), "ml_unittest")
+        db.electorlocks.drop()
 
 
     def test_000_init(self):
         """Smoke test"""
-        MongoElector('test_001_init', MongoClient())
+        db = getattr(MongoClient(), "ml_unittest")
+
+        MongoElector('test_001_init', db)
 
     def test_001_run(self):
-        m1 = MongoElector('test_001_run_' + str(randint(0,10000)), MongoClient(),
-                          dbname='ml_unittest',ttl=15)
+        db = getattr(MongoClient(), "ml_unittest")
+
+        m1 = MongoElector('test_001_run_' + str(randint(0,10000)), db,
+                          ttl=15)
         m1.start()
         c = 0
         while c < 30 and m1.ismaster is False:
