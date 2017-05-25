@@ -17,7 +17,7 @@ class MongoElector(object):
 
     def __init__(self, key, db,
                  ttl=15, onmaster=None, onmasterloss=None,
-                 onloop=None, report_status=True):
+                 onloop=None, app_version=None, report_status=True):
         """
         Create a MongoElector instance
 
@@ -35,11 +35,14 @@ class MongoElector(object):
         :type onmasterloss: Function or Method
         :param onloop: Function that will be run on every loop
         :type onloop: Function or Method
+        :param app_version: Parent app version, if provided, will be included in node_status for monitoring
+        :type app_version: str
         """
         self._poll_lock = threading.Lock()
         self._ts_poll = None
         self._shutdown = False
         self._wasmaster = False
+        self._app_version = app_version
         self._report_status = report_status
         self.elector_thread = None
         self.key = key
@@ -149,6 +152,8 @@ class MongoElector(object):
         status['ismaster'] = self.ismaster
         status['elector_running'] = self.running
         status['last_poll'] = self._ts_poll
+        if self._app_version:
+            status['app_version'] = self._app_version
         return status
 
     def release(self):
