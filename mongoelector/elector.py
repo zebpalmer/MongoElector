@@ -87,7 +87,7 @@ class MongoElector(object):
     @property
     def running(self):
         """Returns true if the elector logic is running"""
-        return self.elector_thread.isAlive()
+        return self.elector_thread.is_alive()
 
     @property
     def ismaster(self):

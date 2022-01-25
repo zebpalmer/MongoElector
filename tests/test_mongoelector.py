@@ -10,7 +10,7 @@ Tests for `mongoelector` module.
 
 import unittest
 from time import sleep
-from pymongo import MongoClient
+import mongomock
 from mongoelector import MongoElector
 from random import randint
 
@@ -18,26 +18,14 @@ from random import randint
 class TestMongoelector(unittest.TestCase):
     """Test Mongoelector Functionality"""
 
-    def setUp(self):
-        """setup unittests"""
-        db = getattr(MongoClient(), "ml_unittest")
-        db.ml_unittest.electorlocks.drop()
-
-
-    def tearDown(self):
-        """teardown unittests"""
-        db = getattr(MongoClient(), "ml_unittest")
-        db.electorlocks.drop()
-
-
     def test_000_init(self):
         """Smoke test"""
-        db = getattr(MongoClient(), "ml_unittest")
+        db = getattr(mongomock.MongoClient(), "ml_unittest")
 
         MongoElector('test_001_init', db)
 
     def test_001_run(self):
-        db = getattr(MongoClient(), "ml_unittest")
+        db = mongomock.MongoClient().db
 
         m1 = MongoElector('test_001_run_' + str(randint(0,10000)), db,
                           ttl=15)
