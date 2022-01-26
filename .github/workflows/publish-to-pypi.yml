@@ -1,23 +1,25 @@
 name: Publish to PyPI and TestPyPI
 
-on: push
+on:
+  - push
+  - pull_request
 
 jobs:
   build-n-publish:
     name: Build and publish Python 🐍 distributions 📦 to PyPI and TestPyPI
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@master
       - name: Set up Python 3.10
         uses: actions/setup-python@v1
         with:
           python-version: '3.10'
-      - name: Install pypa/build
-        run: >-
+      - name: Tests
+        run: |
           pip install -r requirements.txt
           pip install -r test-requirements.txt
           tox
-      - name: I,nstall pypa/build
+      - name: Install pypa/build
         run: >-
           python -m
           pip install
@@ -34,6 +36,7 @@ jobs:
 
       - name: Publish distribution 📦 to Test PyPI
         uses: pypa/gh-action-pypi-publish@master
+        if: github.ref == 'refs/heads/main'
         with:
           password: ${{ secrets.TEST_PYPI_API_TOKEN }}
           repository_url: https://test.pypi.org/legacy/
