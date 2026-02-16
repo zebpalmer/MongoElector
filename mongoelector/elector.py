@@ -1,11 +1,10 @@
 import logging
 import threading
-from datetime import datetime, timezone
 from time import sleep
 
 from pymongo.errors import OperationFailure
 
-from mongoelector.locker import AcquireTimeout, LockExists, MongoLocker
+from mongoelector.locker import AcquireTimeout, LockExists, MongoLocker, _utcnow
 
 log = logging.getLogger(__name__)
 
@@ -15,6 +14,14 @@ class MongoLeaderElector:
 
     Runs a background thread that periodically attempts to acquire leadership
     and invokes callbacks on state transitions.
+
+    Can be used as a context manager::
+
+        with MongoLeaderElector("my-service", db, on_leader=start_work) as elector:
+            # elector is running
+            while elector.running:
+                sleep(1)
+        # elector is stopped, leadership released
     """
 
     def __init__(
@@ -53,6 +60,19 @@ class MongoLeaderElector:
 
         self.mlock = MongoLocker(key, db, dbcollection="elector.locks", ttl=ttl, timeparanoid=True)
 
+    def __repr__(self):
+        leader = "leader" if self.is_leader else "follower"
+        running = "running" if self.running else "stopped"
+        return f"MongoLeaderElector(key={self.key!r}, {leader}, {running}, uuid={self.mlock.uuid!r})"
+
+    def __enter__(self):
+        self.start()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.stop()
+        return False
+
     def start(self, blocking=False):
         """Start the elector background thread.
 
@@ -87,7 +107,7 @@ class MongoLeaderElector:
     def poll(self):
         """Execute one poll cycle: touch/renew if leader, attempt acquire if not."""
         with self._poll_lock:
-            self._ts_poll = datetime.now(tz=timezone.utc)
+            self._ts_poll = _utcnow()
 
             if self.mlock.owned():
                 self._was_leader = True
@@ -128,7 +148,7 @@ class MongoLeaderElector:
         return {
             "member_detail": data,
             "leader": _parse_leader(data),
-            "timestamp": datetime.now(tz=timezone.utc),
+            "timestamp": _utcnow(),
         }
 
     @property

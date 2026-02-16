@@ -8,6 +8,11 @@ from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError, OperationFailure
 
 
+def _utcnow():
+    """Return the current UTC time as a timezone-aware datetime."""
+    return datetime.now(tz=timezone.utc)
+
+
 class LockExists(Exception):
     """Raised when attempting a non-blocking acquire on an existing lock."""
 
@@ -26,15 +31,22 @@ class MongoLocker:
     Mimics the standard library Lock interface where reasonable.
     Used internally by MongoLeaderElector, but works as a standalone
     distributed locking primitive.
+
+    Can be used as a context manager::
+
+        with MongoLocker("my-resource", db, ttl=30) as lock:
+            # lock is held
+            pass
+        # lock is released
     """
 
-    def __init__(self, key, db, *, dbcollection="mongolocker", ttl=600, timeparanoid=True):
+    def __init__(self, key, db, *, dbcollection="mongolocker", ttl=600, timeparanoid=True, maxoffset=0.5):
         if not hasattr(db, "create_collection"):
             raise TypeError("Must pass a pymongo Database instance, not a bare MongoClient")
         if not key:
             raise ValueError("Must provide a non-empty lock key")
-        if not isinstance(ttl, int) or ttl <= 0:
-            raise ValueError("ttl must be a positive integer (seconds)")
+        if not isinstance(ttl, (int, float)) or ttl <= 0:
+            raise ValueError("ttl must be a positive number (seconds)")
 
         self.uuid = str(uuid.uuid4())
         self.host = getfqdn()
@@ -46,9 +58,20 @@ class MongoLocker:
         self.collection = db[dbcollection]
         self._ttl = ttl
         self._sanetime = None
-        self._maxoffset = 0.5
+        self._maxoffset = maxoffset
 
         self._setup_ttl()
+
+    def __repr__(self):
+        return f"MongoLocker(key={self.key!r}, uuid={self.uuid!r}, host={self.host!r}, owned={self.owned()})"
+
+    def __enter__(self):
+        self.acquire()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.release()
+        return False
 
     @property
     def status(self):
@@ -65,7 +88,7 @@ class MongoLocker:
             "uuid": self.uuid,
             "key": self.key,
             "ttl": self._ttl,
-            "timestamp": datetime.now(tz=timezone.utc),
+            "timestamp": _utcnow(),
             "host": self.host,
             "pid": self.pid,
             "lock_owned": mine,
@@ -88,10 +111,10 @@ class MongoLocker:
             return count == 0
         if timeout is None:
             return True
-        return (datetime.now(tz=timezone.utc) - start) <= timedelta(seconds=timeout)
+        return (_utcnow() - start) <= timedelta(seconds=timeout)
 
     def _verifytime(self):
-        now = datetime.now(tz=timezone.utc)
+        now = _utcnow()
         if self._sanetime and self._sanetime > now - timedelta(minutes=10):
             return True
         mongotime = self.database.command("serverStatus")["localTime"]
@@ -111,7 +134,7 @@ class MongoLocker:
             force: If True, forcibly take the lock from any current holder.
 
         Returns:
-            The pymongo result of the insert or replace operation.
+            True if the lock was acquired.
 
         Raises:
             LockExists: Lock is held and blocking=False.
@@ -120,11 +143,11 @@ class MongoLocker:
         if self.timeparanoid:
             self._verifytime()
         count = 0
-        start = datetime.now(tz=timezone.utc)
+        start = _utcnow()
         while self._acquireretry(blocking, start, timeout, count):
             count += 1
             try:
-                created = datetime.now(tz=timezone.utc)
+                created = _utcnow()
                 self.ts_expire = created + timedelta(seconds=self._ttl)
                 payload = {
                     "_id": self.key,
@@ -136,10 +159,12 @@ class MongoLocker:
                     "ts_expire": self.ts_expire,
                 }
                 if force:
-                    return self.collection.find_one_and_replace(
+                    self.collection.find_one_and_replace(
                         {"_id": self.key}, payload, upsert=True, return_document=ReturnDocument.AFTER
                     )
-                return self.collection.insert_one(payload)
+                else:
+                    self.collection.insert_one(payload)
+                return True
             except DuplicateKeyError:
                 existing = self.collection.find_one({"_id": self.key})
                 if existing and not blocking:
@@ -149,7 +174,7 @@ class MongoLocker:
 
     def locked(self):
         """Return True if the lock is currently held by anyone."""
-        res = self.collection.find_one({"_id": self.key, "ts_expire": {"$gt": datetime.now(tz=timezone.utc)}})
+        res = self.collection.find_one({"_id": self.key, "ts_expire": {"$gt": _utcnow()}})
         return bool(res and res.get("locked"))
 
     def owned(self):
@@ -160,7 +185,7 @@ class MongoLocker:
                     "_id": self.key,
                     "uuid": self.uuid,
                     "locked": True,
-                    "ts_expire": {"$gt": datetime.now(tz=timezone.utc)},
+                    "ts_expire": {"$gt": _utcnow()},
                 }
             )
         )
@@ -171,7 +196,7 @@ class MongoLocker:
             {
                 "_id": self.key,
                 "locked": True,
-                "ts_expire": {"$gt": datetime.now(tz=timezone.utc)},
+                "ts_expire": {"$gt": _utcnow()},
             }
         )
 
@@ -181,14 +206,14 @@ class MongoLocker:
         self.collection.delete_many(query)
 
     def touch(self):
-        """Renew the lock's TTL. Returns the new expiration time, or False if the lock is not owned."""
-        ts_expire = datetime.now(tz=timezone.utc) + timedelta(seconds=self._ttl)
+        """Renew the lock's TTL. Returns the new expiration time, or None if the lock is not owned."""
+        ts_expire = _utcnow() + timedelta(seconds=self._ttl)
         result = self.collection.find_one_and_update(
             {
                 "_id": self.key,
                 "uuid": self.uuid,
                 "locked": True,
-                "ts_expire": {"$gt": datetime.now(tz=timezone.utc)},
+                "ts_expire": {"$gt": _utcnow()},
             },
             {"$set": {"ts_expire": ts_expire}},
             return_document=ReturnDocument.AFTER,
@@ -196,4 +221,4 @@ class MongoLocker:
         if result:
             self.ts_expire = result["ts_expire"]
             return self.ts_expire
-        return False
+        return None

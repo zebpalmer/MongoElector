@@ -17,6 +17,11 @@ def test_init_and_invalid_args(db):
         MongoLocker("", db)
     with pytest.raises(ValueError):
         MongoLocker("testinit", db, ttl=-1)
+    with pytest.raises(ValueError):
+        MongoLocker("testinit", db, ttl=0)
+    # float ttl is allowed
+    lock = MongoLocker("testinit_float", db, ttl=1.5, timeparanoid=False)
+    assert lock._ttl == 1.5
 
 
 def test_lock_cycle(db):
@@ -121,3 +126,63 @@ def test_status_property(db):
     assert status["lock_owned"] is True
     assert isinstance(status["lock_created"], datetime)
     assert isinstance(status["lock_expires"], datetime)
+
+
+def test_acquire_returns_bool(db):
+    lock = MongoLocker("testreturn", db, timeparanoid=False)
+    result = lock.acquire()
+    assert result is True
+    lock.release()
+
+    # force acquire also returns True
+    lock.acquire()
+    lock2 = MongoLocker("testreturn", db, timeparanoid=False)
+    result = lock2.acquire(force=True)
+    assert result is True
+    lock2.release()
+
+
+def test_touch_returns_none_when_not_owned(db):
+    lock = MongoLocker("testtouch_none", db, timeparanoid=False)
+    # touch without owning the lock returns None
+    result = lock.touch()
+    assert result is None
+
+
+def test_context_manager(db):
+    with MongoLocker("testctx", db, timeparanoid=False) as lock:
+        assert lock.owned()
+        assert lock.locked()
+    # lock released after exiting context
+    assert not lock.owned()
+    assert not lock.locked()
+
+
+def test_context_manager_releases_on_exception(db):
+    lock = MongoLocker("testctx_exc", db, timeparanoid=False)
+    with pytest.raises(RuntimeError):
+        lock.acquire()
+        assert lock.owned()
+        raise RuntimeError("boom")
+    # verify lock is still held (no auto-release without context manager)
+    assert lock.owned()
+    lock.release()
+
+    # now test that context manager DOES release on exception
+    with pytest.raises(RuntimeError), lock:
+        assert lock.owned()
+        raise RuntimeError("boom")
+    assert not lock.owned()
+
+
+def test_repr(db):
+    lock = MongoLocker("testrepr", db, timeparanoid=False)
+    r = repr(lock)
+    assert "testrepr" in r
+    assert lock.uuid in r
+    assert "MongoLocker" in r
+
+
+def test_maxoffset_configurable(db):
+    lock = MongoLocker("testoffset", db, timeparanoid=False, maxoffset=2.0)
+    assert lock._maxoffset == 2.0
