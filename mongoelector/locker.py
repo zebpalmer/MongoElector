@@ -118,6 +118,8 @@ class MongoLocker:
         if self._sanetime and self._sanetime > now - timedelta(minutes=10):
             return True
         mongotime = self.database.command("serverStatus")["localTime"]
+        if mongotime.tzinfo is None:
+            mongotime = mongotime.replace(tzinfo=timezone.utc)
         offset = abs((now - mongotime).total_seconds())
         if offset > self._maxoffset:
             raise TimeOffsetError(f"Clock offset vs MongoDB is too high: {round(offset, 2)}s")
