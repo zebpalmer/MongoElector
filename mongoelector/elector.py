@@ -68,7 +68,7 @@ class MongoLeaderElector:
     def stop(self):
         """Stop the elector thread and release leadership."""
         self._shutdown = True
-        if self._elector_thread:
+        if self._elector_thread and threading.current_thread() is not self._elector_thread:
             self._elector_thread.join()
         self.release()
 

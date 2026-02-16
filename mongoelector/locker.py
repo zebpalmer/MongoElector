@@ -75,10 +75,10 @@ class MongoLocker:
 
     def _setup_ttl(self):
         try:
-            self.collection.create_index("ts_expire", expireAfterSeconds=self._ttl)
+            self.collection.create_index("ts_expire", expireAfterSeconds=0)
         except OperationFailure:
             self.collection.drop_indexes()
-            self.collection.create_index("ts_expire", expireAfterSeconds=self._ttl)
+            self.collection.create_index("ts_expire", expireAfterSeconds=0)
 
     @staticmethod
     def _acquireretry(blocking, start, timeout, count):
