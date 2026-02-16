@@ -1,0 +1,62 @@
+name: Python Package CI/CD
+
+on:
+  push:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build_and_test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.11', '3.12', '3.13']
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install UV
+      uses: astral-sh/setup-uv@v5
+
+    - name: Set up Python ${{ matrix.python-version }}
+      run: uv python install ${{ matrix.python-version }}
+
+    - name: Install dependencies
+      run: uv sync --all-extras --all-groups
+
+    - name: Lint
+      run: make lint-check
+
+    - name: Test
+      run: make test
+
+  publish:
+    runs-on: ubuntu-latest
+    environment: release
+    if: startsWith(github.ref, 'refs/tags/') && needs.build_and_test.result == 'success'
+    needs: build_and_test
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install UV
+      uses: astral-sh/setup-uv@v5
+
+    - name: Set up Python
+      run: uv python install 3.12
+
+    - name: Build package
+      run: uv build
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+
+    - name: Publish package distributions to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
