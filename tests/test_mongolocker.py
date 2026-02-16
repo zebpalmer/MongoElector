@@ -1,140 +1,188 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
-"""
-test_mongoelector
-----------------------------------
-
-Tests for `mongoelector` module.
-"""
-
-import os
-import sys
-import unittest
 import time
-from datetime import datetime, timedelta
-sys.path.insert(0, os.path.abspath('..'))
-# noinspection PyPep8
-from mongoelector import MongoLocker, LockExists
-# noinspection PyPep8
-from pymongo import MongoClient
+from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
+
+import pytest
+
+from mongoelector import LockExists, MongoLocker
 
 
-class TestMongoLocker(unittest.TestCase):
-    """Test MongoLocker Functionality"""
-
-    def setUp(self):
-        """Setup Unittests"""
-        MongoClient().ml_unittest.mongolocker.drop()
-
-    def tearDown(self):
-        """Teardown unittests"""
-        MongoClient().ml_unittest.mongolocker.drop()
-
-    def test_001_init(self):
-        """Smoke test"""
-        db = getattr(MongoClient(), "ml_unittest")
-        MongoLocker('testinit', db)
-        with self.assertRaises(TypeError):
-            MongoLocker(None, None)
-        with self.assertRaises(ValueError):
-            MongoLocker('testinit', db, ttl='not-an-int')
+def test_init_and_invalid_args(db):
+    MongoLocker("testinit", db, timeparanoid=False)
+    with pytest.raises(TypeError):
+        MongoLocker(None, None)
+    with pytest.raises(ValueError):
+        MongoLocker("testinit", db, ttl="not-an-int")
+    with pytest.raises(ValueError):
+        MongoLocker("", db)
+    with pytest.raises(ValueError):
+        MongoLocker("testinit", db, ttl=-1)
+    with pytest.raises(ValueError):
+        MongoLocker("testinit", db, ttl=0)
+    # float ttl is allowed
+    lock = MongoLocker("testinit_float", db, ttl=1.5, timeparanoid=False)
+    assert lock._ttl == 1.5
 
 
+def test_lock_cycle(db):
+    lock = MongoLocker("testcycle", db, timeparanoid=False)
+    if lock.locked():
+        lock.release(force=True)
 
-    def test_002_cycle(self):
-        """run some lock cycles"""
-        db = getattr(MongoClient(), "ml_unittest")
-        ml = MongoLocker('testcycle', db)
-        if ml.locked():  # cleanup any leftovers
-            ml.release(force=False)
-        ml.acquire()
-        self.assertTrue(ml.locked())
-        self.assertTrue(ml.owned())
-        ml.release()
-        self.assertFalse(ml.owned())
-        self.assertFalse(ml.locked())
-        ml.acquire()
-        ml.release(force=False)
-        self.assertFalse(ml.locked())
+    lock.acquire()
+    assert lock.locked()
+    assert lock.owned()
+    lock.release()
+    assert not lock.owned()
+    assert not lock.locked()
 
-    def test_003_paranoid(self):
-        """test time paranoia"""
-        db = getattr(MongoClient(), "ml_unittest")
-        ml = MongoLocker('testinit', db, timeparanoid=True)
-        ml._verifytime()
+    lock.acquire()
+    lock.release(force=False)
+    assert not lock.locked()
 
-    def test_004_force_release(self):
-        """Force releases"""
-        db = getattr(MongoClient(), "ml_unittest")
-        ml1 = MongoLocker('testrelease', db)
-        ml2 = MongoLocker('testrelease', db)
-        ml1.acquire()
-        with self.assertRaises(LockExists):
-            ml2.acquire(blocking=False)
-        ml2.release()
-        self.assertTrue(ml1.locked())
-        self.assertTrue(ml1.owned())
-        ml2.release(force=True)
-        self.assertFalse(ml1.locked())
-        self.assertFalse(ml1.owned())
 
-    def test_005_acquire_retry(self):
-        """Test method that determines if an acquire retry is appropriate"""
-        _acquireretry = MongoLocker._acquireretry
-        start = datetime.utcnow()
-        self.assertTrue(_acquireretry(True, start, 0, 0))  # initial entry
-        with self.assertRaises(ValueError):
-            _acquireretry(False, start, 30, 0)  # blocking false w/ timeout
-        start = datetime.utcnow()
-        self.assertTrue(_acquireretry(True, start, 10, 1))  # blocking true, count > 0
-        self.assertTrue(_acquireretry(True, start, 10, 0))  # blocking true, count 0
-        past = datetime.utcnow() - timedelta(minutes=1)
-        self.assertFalse(_acquireretry(True, past, 50, 10))  # passed timeout
-        self.assertFalse(_acquireretry(False, start, None, 1))  # non-blocking
+def test_time_paranoia_mocked(db):
+    with patch("mongoelector.locker.MongoLocker._verifytime", return_value=True):
+        lock = MongoLocker("testparanoia", db, timeparanoid=True)
+        assert lock._verifytime() is True
 
-    def test_006_acquire_force(self):
-        """Test stealing the lock"""
-        db = getattr(MongoClient(), "testcycle")
-        a = MongoLocker('testcycle', db)
-        b = MongoLocker('testcycle', db)
-        a.acquire()
-        self.assertTrue(a.owned())
-        self.assertTrue(b.acquire(force=True))
-        self.assertTrue(b.owned())
-        self.assertFalse(a.owned())
-        a.release()
-        b.release()
-        self.assertFalse(a.locked())
-        self.assertFalse(b.locked())
 
-    def test_007_touch(self):
-        """ensure touch updates the expiration timestamp"""
-        db = getattr(MongoClient(), "ml_unittest")
-        ml = MongoLocker('testtouch', db)
-        ml.acquire()
-        start = ml.ts_expire
-        time.sleep(1)
-        self.assertTrue(ml.touch())
-        end = ml.ts_expire
-        self.assertTrue(end > start)
+def test_force_release(db):
+    l1 = MongoLocker("testrelease", db, timeparanoid=False)
+    l2 = MongoLocker("testrelease", db, timeparanoid=False)
+    l1.acquire()
 
-    def test_008_status(self):
-        """Test lock status property"""
-        db = getattr(MongoClient(), "ml_unittest")
-        ml = MongoLocker('teststatus', db)
-        a = ml.status
-        self.assertIsInstance(a['pid'], int)
-        # Test Unlocked
-        self.assertEqual(a['lock_created'], None)
-        self.assertEqual(a['lock_expires'], None)
-        self.assertEqual(a['lock_owned'], False)
-        # Test Locked
-        ml.acquire()
-        b = ml.status
-        self.assertEqual(b['lock_owned'], True)
-        self.assertIsInstance(b['lock_expires'], datetime)
-        self.assertIsInstance(b['lock_created'], datetime)
+    with pytest.raises(LockExists):
+        l2.acquire(blocking=False)
 
-if __name__ == '__main__':
-    sys.exit(unittest.main())
+    l2.release()
+    assert l1.locked()
+    assert l1.owned()
+
+    l2.release(force=True)
+    assert not l1.locked()
+    assert not l1.owned()
+
+
+def test_acquire_retry_logic():
+    fn = MongoLocker._acquireretry
+    now = datetime.now(timezone.utc)
+
+    # blocking=False with timeout is invalid
+    with pytest.raises(ValueError):
+        fn(False, now, 10, 0)
+
+    # blocking=True with generous timeout allows retries
+    assert fn(True, now, 10, 1)
+    assert fn(True, now, 10, 0)
+
+    # blocking=True with expired timeout
+    past = now - timedelta(minutes=1)
+    assert not fn(True, past, 5, 10)
+
+    # blocking=False only allows count==0
+    assert fn(False, now, None, 0)
+    assert not fn(False, now, None, 1)
+
+
+def test_force_acquire(db):
+    a = MongoLocker("testforce", db, timeparanoid=False)
+    b = MongoLocker("testforce", db, timeparanoid=False)
+    a.acquire()
+    assert a.owned()
+
+    b.acquire(force=True)
+    assert b.owned()
+    assert not a.owned()
+
+    a.release()
+    b.release()
+    assert not a.locked()
+    assert not b.locked()
+
+
+def test_touch_updates_expiration(db):
+    lock = MongoLocker("testtouch", db, timeparanoid=False)
+    lock.acquire()
+    start_ts = lock.ts_expire.replace(tzinfo=None) if lock.ts_expire.tzinfo else lock.ts_expire
+    time.sleep(1)
+    updated = lock.touch()
+    assert updated
+    end_ts = lock.ts_expire.replace(tzinfo=None) if lock.ts_expire.tzinfo else lock.ts_expire
+    assert end_ts > start_ts
+
+
+def test_status_property(db):
+    lock = MongoLocker("teststatus", db, timeparanoid=False)
+    status = lock.status
+
+    assert isinstance(status["pid"], int)
+    assert status["lock_created"] is None
+    assert status["lock_expires"] is None
+    assert status["lock_owned"] is False
+
+    lock.acquire()
+    status = lock.status
+    assert status["lock_owned"] is True
+    assert isinstance(status["lock_created"], datetime)
+    assert isinstance(status["lock_expires"], datetime)
+
+
+def test_acquire_returns_bool(db):
+    lock = MongoLocker("testreturn", db, timeparanoid=False)
+    result = lock.acquire()
+    assert result is True
+    lock.release()
+
+    # force acquire also returns True
+    lock.acquire()
+    lock2 = MongoLocker("testreturn", db, timeparanoid=False)
+    result = lock2.acquire(force=True)
+    assert result is True
+    lock2.release()
+
+
+def test_touch_returns_none_when_not_owned(db):
+    lock = MongoLocker("testtouch_none", db, timeparanoid=False)
+    # touch without owning the lock returns None
+    result = lock.touch()
+    assert result is None
+
+
+def test_context_manager(db):
+    with MongoLocker("testctx", db, timeparanoid=False) as lock:
+        assert lock.owned()
+        assert lock.locked()
+    # lock released after exiting context
+    assert not lock.owned()
+    assert not lock.locked()
+
+
+def test_context_manager_releases_on_exception(db):
+    lock = MongoLocker("testctx_exc", db, timeparanoid=False)
+    with pytest.raises(RuntimeError):
+        lock.acquire()
+        assert lock.owned()
+        raise RuntimeError("boom")
+    # verify lock is still held (no auto-release without context manager)
+    assert lock.owned()
+    lock.release()
+
+    # now test that context manager DOES release on exception
+    with pytest.raises(RuntimeError), lock:
+        assert lock.owned()
+        raise RuntimeError("boom")
+    assert not lock.owned()
+
+
+def test_repr(db):
+    lock = MongoLocker("testrepr", db, timeparanoid=False)
+    r = repr(lock)
+    assert "testrepr" in r
+    assert lock.uuid in r
+    assert "MongoLocker" in r
+
+
+def test_maxoffset_configurable(db):
+    lock = MongoLocker("testoffset", db, timeparanoid=False, maxoffset=2.0)
+    assert lock._maxoffset == 2.0
